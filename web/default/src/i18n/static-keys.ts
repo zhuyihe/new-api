@@ -431,6 +431,8 @@ export const STATIC_I18N_KEYS = [
   'Drawing task records',
   'Task Logs',
   'System task records',
+  'ProductFlow image workspace',
+  'Open the configured ProductFlow image workspace.',
   'Personal Center Area',
   'User personal functions',
   'Wallet Management',

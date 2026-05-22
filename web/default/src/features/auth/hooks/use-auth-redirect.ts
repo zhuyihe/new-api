@@ -85,8 +85,14 @@ export function useAuthRedirect() {
       console.error('Failed to fetch user data:', error)
     }
 
-    // Navigate to target page
+    // Backend endpoints need a full page navigation so the browser performs
+    // the server-side redirect flow instead of asking TanStack Router to match
+    // an API path.
     const targetPath = redirectTo || '/dashboard'
+    if (targetPath.startsWith('/api/')) {
+      window.location.assign(targetPath)
+      return
+    }
     navigate({ to: targetPath, replace: true })
   }
 

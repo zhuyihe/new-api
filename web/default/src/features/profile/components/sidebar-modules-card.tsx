@@ -101,6 +101,11 @@ export function SidebarModulesCard() {
           title: t('Task Logs'),
           description: t('System task records'),
         },
+        {
+          key: 'image',
+          title: t('Image'),
+          description: t('ProductFlow image workspace'),
+        },
       ],
     },
     {
@@ -144,7 +149,10 @@ export function SidebarModulesCard() {
   }, [])
 
   useEffect(() => {
-    loadConfig()
+    const timeout = window.setTimeout(() => {
+      void loadConfig()
+    }, 0)
+    return () => window.clearTimeout(timeout)
   }, [loadConfig])
 
   const toggleSection = (sectionKey: string, val: boolean) => {

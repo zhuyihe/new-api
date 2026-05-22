@@ -61,6 +61,13 @@ func SetApiRouter(router *gin.Engine) {
 		// Universal secure verification routes
 		apiRouter.POST("/verify", middleware.UserAuth(), middleware.CriticalRateLimit(), controller.UniversalVerify)
 
+		productFlowSSORoute := apiRouter.Group("/productflow/sso")
+		productFlowSSORoute.Use(middleware.CriticalRateLimit())
+		{
+			productFlowSSORoute.GET("/start", controller.StartProductFlowSSO)
+			productFlowSSORoute.POST("/verify", controller.VerifyProductFlowSSO)
+		}
+
 		userRoute := apiRouter.Group("/user")
 		{
 			userRoute.POST("/register", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.Register)

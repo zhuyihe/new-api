@@ -108,6 +108,10 @@ export function SidebarModulesSection({
         title: t('Task logs'),
         description: t('Background job tracker for queued work.'),
       },
+      image: {
+        title: t('Image'),
+        description: t('Open the configured ProductFlow image workspace.'),
+      },
     },
     personal: {
       topup: {

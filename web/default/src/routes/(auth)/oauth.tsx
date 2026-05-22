@@ -43,6 +43,10 @@ function OAuthComponent() {
         if (res?.success) {
           useAuthStore.getState().auth.setUser(res.data as AuthUser)
           const target = search?.redirect || '/dashboard'
+          if (target.startsWith('/api/')) {
+            window.location.assign(target)
+            return
+          }
           navigate({ to: target, replace: true })
           return
         }

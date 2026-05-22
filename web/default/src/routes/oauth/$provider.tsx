@@ -59,6 +59,10 @@ function OAuthCallback() {
   useEffect(() => {
     ;(async () => {
       const safeNavigate = (target: string) => {
+        if (target.startsWith('/api/')) {
+          window.location.assign(target)
+          return
+        }
         navigate({ to: target as never, replace: true })
         if (typeof window !== 'undefined') {
           setTimeout(() => {
