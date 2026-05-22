@@ -1,0 +1,4 @@
+{"file": "AGENTS.md", "reason": "New API project-specific backend/frontend rules, JSON helpers, DB compatibility, and protected branding constraints"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend guideline index for this repository"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guides for cross-layer and reuse checks"}
+{"file": ".trellis/tasks/05-22-productflow-sso/research/productflow-contract.md", "reason": "ProductFlow callback and verify contract this patch must satisfy"}

@@ -1,0 +1,5 @@
+{"file": "AGENTS.md", "reason": "New API project rules and validation expectations"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend quality checklist entrypoint"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared review thinking guides"}
+{"file": ".trellis/tasks/05-22-productflow-sso/prd.md", "reason": "Acceptance criteria for quality verification"}
+{"file": ".trellis/tasks/05-22-productflow-sso/research/productflow-contract.md", "reason": "External ProductFlow SSO contract to validate against"}
