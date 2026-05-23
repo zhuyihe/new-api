@@ -11,8 +11,7 @@ import (
 )
 
 func TestProductFlowVerifyRejectsInvalidSecret(t *testing.T) {
-	withProductFlowSSOEnv(t)
-	resetProductFlowMemoryTickets(t)
+	prepareProductFlowSSOTest(t)
 	router := productFlowSSORouter()
 
 	recorder := httptest.NewRecorder()
@@ -26,8 +25,7 @@ func TestProductFlowVerifyRejectsInvalidSecret(t *testing.T) {
 }
 
 func TestProductFlowVerifyRequiresBearerAuthorization(t *testing.T) {
-	withProductFlowSSOEnv(t)
-	resetProductFlowMemoryTickets(t)
+	prepareProductFlowSSOTest(t)
 	router := productFlowSSORouter()
 
 	tests := []struct {
@@ -64,8 +62,7 @@ func TestProductFlowVerifyRequiresBearerAuthorization(t *testing.T) {
 }
 
 func TestProductFlowTicketCanOnlyBeVerifiedOnce(t *testing.T) {
-	withProductFlowSSOEnv(t)
-	resetProductFlowMemoryTickets(t)
+	prepareProductFlowSSOTest(t)
 	router := productFlowSSORouter()
 
 	claims := productFlowTicketClaims{

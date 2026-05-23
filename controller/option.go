@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -84,6 +85,49 @@ func buildCompletionRatioMetaValue(optionValues map[string]string) string {
 	return string(jsonBytes)
 }
 
+func validateProductFlowOptionValue(key string, value string) (string, error) {
+	switch key {
+	case productFlowOptionBaseURL:
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return "", nil
+		}
+		parsed, err := url.ParseRequestURI(trimmed)
+		if err != nil {
+			return "", fmt.Errorf("ProductFlow URL 无效: %w", err)
+		}
+		if parsed.Scheme == "" || parsed.Host == "" {
+			return "", fmt.Errorf("ProductFlow URL 必须为绝对地址")
+		}
+		return strings.TrimRight(trimmed, "/"), nil
+	case productFlowOptionSharedSecret, productFlowOptionTokenGroup:
+		return strings.TrimSpace(value), nil
+	case productFlowOptionTokenName:
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return productFlowDefaultTokenName, nil
+		}
+		return trimmed, nil
+	case productFlowOptionTokenModelLimits:
+		return normalizeCSV(value), nil
+	case productFlowOptionTicketTTL, productFlowOptionSessionTTL:
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			if key == productFlowOptionTicketTTL {
+				return strconv.Itoa(productFlowDefaultTicketTTL), nil
+			}
+			return strconv.Itoa(productFlowDefaultSessionTTL), nil
+		}
+		parsed, err := strconv.Atoi(trimmed)
+		if err != nil || parsed <= 0 {
+			return "", fmt.Errorf("TTL 必须为正整数秒")
+		}
+		return strconv.Itoa(parsed), nil
+	default:
+		return value, nil
+	}
+}
+
 func GetOptions(c *gin.Context) {
 	var options []*model.Option
 	optionValues := make(map[string]string)
@@ -145,6 +189,15 @@ func UpdateOption(c *gin.Context) {
 		option.Value = common.Interface2String(option.Value.(int))
 	default:
 		option.Value = fmt.Sprintf("%v", option.Value)
+	}
+	if normalizedValue, normalizeErr := validateProductFlowOptionValue(option.Key, option.Value.(string)); normalizeErr != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": normalizeErr.Error(),
+		})
+		return
+	} else {
+		option.Value = normalizedValue
 	}
 	switch option.Key {
 	case "QuotaForInviter", "QuotaForInvitee":

@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { SystemBehaviorSection } from '../general/system-behavior-section'
 import { EmailSettingsSection } from '../integrations/email-settings-section'
 import { MonitoringSettingsSection } from '../integrations/monitoring-settings-section'
+import { ProductFlowSSOSettingsSection } from '../integrations/productflow-sso-settings-section'
 import { WorkerSettingsSection } from '../integrations/worker-settings-section'
 import { LogSettingsSection } from '../maintenance/log-settings-section'
 import { PerformanceSection } from '../maintenance/performance-section'
@@ -94,6 +95,29 @@ const OPERATIONS_SECTIONS = [
           WorkerValidKey: settings.WorkerValidKey,
           WorkerAllowHttpImageRequestEnabled:
             settings.WorkerAllowHttpImageRequestEnabled,
+        }}
+      />
+    ),
+  },
+  {
+    id: 'productflow-sso',
+    titleKey: 'ProductFlow SSO',
+    descriptionKey: 'Configure the ProductFlow image workspace bridge',
+    build: (settings: OperationsSettings) => (
+      <ProductFlowSSOSettingsSection
+        defaultValues={{
+          'productflow_sso.base_url': settings['productflow_sso.base_url'],
+          'productflow_sso.shared_secret':
+            settings['productflow_sso.shared_secret'],
+          'productflow_sso.token_name': settings['productflow_sso.token_name'],
+          'productflow_sso.token_model_limits':
+            settings['productflow_sso.token_model_limits'],
+          'productflow_sso.token_group':
+            settings['productflow_sso.token_group'],
+          'productflow_sso.ticket_ttl_seconds':
+            settings['productflow_sso.ticket_ttl_seconds'],
+          'productflow_sso.session_ttl_seconds':
+            settings['productflow_sso.session_ttl_seconds'],
         }}
       />
     ),

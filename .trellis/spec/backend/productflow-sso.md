@@ -21,15 +21,19 @@
 
 ### 3. Contracts
 
-Environment keys:
+Database-backed option keys:
 
-- `PRODUCTFLOW_BASE_URL`: required for SSO start, for example `https://image.aync.cc.cd`.
-- `PRODUCTFLOW_SSO_SECRET`: required for verify.
-- `PRODUCTFLOW_TOKEN_NAME`: optional, defaults to `ProductFlow`.
-- `PRODUCTFLOW_TOKEN_MODEL_LIMITS`: optional comma-separated model whitelist; whitespace is trimmed.
-- `PRODUCTFLOW_TOKEN_GROUP`: optional token group.
-- `PRODUCTFLOW_SSO_TICKET_TTL_SECONDS`: optional, defaults to `60`.
-- `PRODUCTFLOW_SESSION_TTL_SECONDS`: optional, defaults to `1209600`.
+- `productflow_sso.base_url`: required for SSO start, for example `https://image.aync.cc.cd`.
+- `productflow_sso.shared_secret`: required for verify.
+- `productflow_sso.token_name`: optional, defaults to `ProductFlow`.
+- `productflow_sso.token_model_limits`: optional comma-separated model whitelist; whitespace is trimmed.
+- `productflow_sso.token_group`: optional token group.
+- `productflow_sso.ticket_ttl_seconds`: optional, defaults to `60`.
+- `productflow_sso.session_ttl_seconds`: optional, defaults to `1209600`.
+
+The ProductFlow SSO bridge must read these values from New API's option store (`common.OptionMap` backed by the options
+table). Environment variables are not a fallback for this bridge, so stale deployment env cannot silently change SSO
+behavior.
 
 Verify response `data` fields:
 
@@ -53,9 +57,9 @@ Security contract:
 
 ### 4. Validation & Error Matrix
 
-- Missing `PRODUCTFLOW_BASE_URL` on start -> `503`.
-- Invalid `PRODUCTFLOW_BASE_URL` on start -> `503`.
-- Missing `PRODUCTFLOW_SSO_SECRET` on start or verify -> `503`.
+- Missing ProductFlow base URL on start -> `503`.
+- Invalid ProductFlow base URL on start -> `503`.
+- Missing ProductFlow shared secret on start or verify -> `503`.
 - No valid browser session on start -> `302` to `/sign-in?redirect=%2Fapi%2Fproductflow%2Fsso%2Fstart`.
 - Disabled user on start -> `403`.
 - Missing or wrong verify secret -> `401`.

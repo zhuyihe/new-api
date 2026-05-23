@@ -297,6 +297,13 @@ export type OperationsSettings = {
   WorkerUrl: string
   WorkerValidKey: string
   WorkerAllowHttpImageRequestEnabled: boolean
+  'productflow_sso.base_url': string
+  'productflow_sso.shared_secret': string
+  'productflow_sso.token_name': string
+  'productflow_sso.token_model_limits': string
+  'productflow_sso.token_group': string
+  'productflow_sso.ticket_ttl_seconds': number
+  'productflow_sso.session_ttl_seconds': number
   LogConsumeEnabled: boolean
   'performance_setting.disk_cache_enabled': boolean
   'performance_setting.disk_cache_threshold_mb': number

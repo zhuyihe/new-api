@@ -14,6 +14,12 @@ import (
 	"github.com/QuantumNous/new-api/setting/system_setting"
 )
 
+const (
+	productFlowDefaultTokenName  = "ProductFlow"
+	productFlowDefaultTicketTTL  = 60
+	productFlowDefaultSessionTTL = 14 * 24 * 60 * 60
+)
+
 type Option struct {
 	Key   string `json:"key" gorm:"primaryKey"`
 	Value string `json:"value"`
@@ -73,6 +79,13 @@ func InitOptionMap() {
 	common.OptionMap["WorkerUrl"] = system_setting.WorkerUrl
 	common.OptionMap["WorkerValidKey"] = system_setting.WorkerValidKey
 	common.OptionMap["WorkerAllowHttpImageRequestEnabled"] = strconv.FormatBool(system_setting.WorkerAllowHttpImageRequestEnabled)
+	common.OptionMap["productflow_sso.base_url"] = ""
+	common.OptionMap["productflow_sso.shared_secret"] = ""
+	common.OptionMap["productflow_sso.token_name"] = productFlowDefaultTokenName
+	common.OptionMap["productflow_sso.token_model_limits"] = ""
+	common.OptionMap["productflow_sso.token_group"] = ""
+	common.OptionMap["productflow_sso.ticket_ttl_seconds"] = strconv.Itoa(productFlowDefaultTicketTTL)
+	common.OptionMap["productflow_sso.session_ttl_seconds"] = strconv.Itoa(productFlowDefaultSessionTTL)
 	common.OptionMap["PayAddress"] = ""
 	common.OptionMap["CustomCallbackAddress"] = ""
 	common.OptionMap["EpayId"] = ""

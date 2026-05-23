@@ -52,6 +52,13 @@ const defaultOperationsSettings: OperationsSettings = {
   WorkerUrl: '',
   WorkerValidKey: '',
   WorkerAllowHttpImageRequestEnabled: false,
+  'productflow_sso.base_url': '',
+  'productflow_sso.shared_secret': '',
+  'productflow_sso.token_name': 'ProductFlow',
+  'productflow_sso.token_model_limits': '',
+  'productflow_sso.token_group': '',
+  'productflow_sso.ticket_ttl_seconds': 60,
+  'productflow_sso.session_ttl_seconds': 1209600,
   LogConsumeEnabled: false,
   'performance_setting.disk_cache_enabled': false,
   'performance_setting.disk_cache_threshold_mb': 10,
@@ -93,6 +100,7 @@ export function OperationsSettings() {
     | 'monitoring'
     | 'email'
     | 'worker'
+    | 'productflow-sso'
     | 'logs'
     | 'performance'
     | 'update-checker'

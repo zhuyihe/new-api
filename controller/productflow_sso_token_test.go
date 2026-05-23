@@ -9,9 +9,7 @@ import (
 )
 
 func TestProductFlowTokenProvisioningIsSerialized(t *testing.T) {
-	db := setupProductFlowSSOTestDB(t)
-	withProductFlowSSOEnv(t)
-	resetProductFlowMemoryTickets(t)
+	db := prepareProductFlowSSOTest(t)
 	user := seedProductFlowUser(t, db)
 	cfg := getProductFlowSSOConfig()
 

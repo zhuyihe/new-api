@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { z } from 'zod'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useAuthStore } from '@/stores/auth-store'
+import { isProductFlowSsoStartPath } from '@/features/auth/lib/productflow-sso'
 import { SignIn } from '@/features/auth/sign-in'
 
 const searchSchema = z.object({
@@ -36,6 +37,9 @@ export const Route = createFileRoute('/(auth)/sign-in')({
       // 优先使用 redirect 参数（用户之前想去的地方）
       // 否则跳转到 dashboard
       const target = search?.redirect || '/dashboard'
+      if (isProductFlowSsoStartPath(target)) {
+        return
+      }
       if (target.startsWith('/api/')) {
         throw redirect({ href: target, reloadDocument: true })
       }

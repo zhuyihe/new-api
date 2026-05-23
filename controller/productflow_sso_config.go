@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -13,6 +14,14 @@ const (
 	productFlowDefaultTokenName  = "ProductFlow"
 	productFlowDefaultTicketTTL  = 60
 	productFlowDefaultSessionTTL = 14 * 24 * 60 * 60
+
+	productFlowOptionBaseURL          = "productflow_sso.base_url"
+	productFlowOptionSharedSecret     = "productflow_sso.shared_secret"
+	productFlowOptionTokenName        = "productflow_sso.token_name"
+	productFlowOptionTokenModelLimits = "productflow_sso.token_model_limits"
+	productFlowOptionTokenGroup       = "productflow_sso.token_group"
+	productFlowOptionTicketTTL        = "productflow_sso.ticket_ttl_seconds"
+	productFlowOptionSessionTTL       = "productflow_sso.session_ttl_seconds"
 )
 
 type productFlowSSOConfig struct {
@@ -26,46 +35,94 @@ type productFlowSSOConfig struct {
 }
 
 func getProductFlowSSOConfig() productFlowSSOConfig {
-	tokenName := strings.TrimSpace(common.GetEnvOrDefaultString("PRODUCTFLOW_TOKEN_NAME", productFlowDefaultTokenName))
+	tokenName := getProductFlowOptionString(
+		productFlowOptionTokenName,
+		productFlowDefaultTokenName,
+	)
 	if tokenName == "" {
 		tokenName = productFlowDefaultTokenName
 	}
-	ticketTTL := common.GetEnvOrDefault("PRODUCTFLOW_SSO_TICKET_TTL_SECONDS", productFlowDefaultTicketTTL)
+	ticketTTL := getProductFlowOptionInt(
+		productFlowOptionTicketTTL,
+		productFlowDefaultTicketTTL,
+	)
 	if ticketTTL <= 0 {
 		ticketTTL = productFlowDefaultTicketTTL
 	}
-	sessionTTL := common.GetEnvOrDefault("PRODUCTFLOW_SESSION_TTL_SECONDS", productFlowDefaultSessionTTL)
+	sessionTTL := getProductFlowOptionInt(
+		productFlowOptionSessionTTL,
+		productFlowDefaultSessionTTL,
+	)
 	if sessionTTL <= 0 {
 		sessionTTL = productFlowDefaultSessionTTL
 	}
 	return productFlowSSOConfig{
-		BaseURL:           strings.TrimSpace(common.GetEnvOrDefaultString("PRODUCTFLOW_BASE_URL", "")),
-		SharedSecret:      strings.TrimSpace(common.GetEnvOrDefaultString("PRODUCTFLOW_SSO_SECRET", "")),
-		TokenName:         tokenName,
-		TokenModelLimits:  normalizeCSV(common.GetEnvOrDefaultString("PRODUCTFLOW_TOKEN_MODEL_LIMITS", "")),
-		TokenGroup:        strings.TrimSpace(common.GetEnvOrDefaultString("PRODUCTFLOW_TOKEN_GROUP", "")),
+		BaseURL: getProductFlowOptionString(
+			productFlowOptionBaseURL,
+			"",
+		),
+		SharedSecret: getProductFlowOptionString(
+			productFlowOptionSharedSecret,
+			"",
+		),
+		TokenName: tokenName,
+		TokenModelLimits: normalizeCSV(getProductFlowOptionString(
+			productFlowOptionTokenModelLimits,
+			"",
+		)),
+		TokenGroup: getProductFlowOptionString(
+			productFlowOptionTokenGroup,
+			"",
+		),
 		TicketTTLSeconds:  ticketTTL,
 		SessionTTLSeconds: sessionTTL,
 	}
 }
 
+func getProductFlowOptionString(optionKey string, fallback string) string {
+	common.OptionMapRWMutex.RLock()
+	value, ok := common.OptionMap[optionKey]
+	common.OptionMapRWMutex.RUnlock()
+	if ok {
+		return strings.TrimSpace(value)
+	}
+	return strings.TrimSpace(fallback)
+}
+
+func getProductFlowOptionInt(optionKey string, fallback int) int {
+	common.OptionMapRWMutex.RLock()
+	value, ok := common.OptionMap[optionKey]
+	common.OptionMapRWMutex.RUnlock()
+	if ok {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return fallback
+		}
+		parsed, err := strconv.Atoi(trimmed)
+		if err == nil {
+			return parsed
+		}
+	}
+	return fallback
+}
+
 func (cfg productFlowSSOConfig) validateForStart() error {
 	if cfg.BaseURL == "" {
-		return errors.New("PRODUCTFLOW_BASE_URL is not configured")
+		return errors.New("ProductFlow base URL is not configured")
 	}
 	parsed, err := url.ParseRequestURI(cfg.BaseURL)
 	if err != nil {
-		return fmt.Errorf("PRODUCTFLOW_BASE_URL is invalid: %w", err)
+		return fmt.Errorf("ProductFlow base URL is invalid: %w", err)
 	}
 	if parsed.Scheme == "" || parsed.Host == "" {
-		return errors.New("PRODUCTFLOW_BASE_URL must be an absolute URL")
+		return errors.New("ProductFlow base URL must be an absolute URL")
 	}
 	return cfg.validateForVerify()
 }
 
 func (cfg productFlowSSOConfig) validateForVerify() error {
 	if cfg.SharedSecret == "" {
-		return errors.New("PRODUCTFLOW_SSO_SECRET is not configured")
+		return errors.New("ProductFlow shared secret is not configured")
 	}
 	return nil
 }

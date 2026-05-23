@@ -21,6 +21,10 @@ import i18n from 'i18next'
 import { useAuthStore } from '@/stores/auth-store'
 import { getSelf } from '@/lib/api'
 import type { User } from '@/features/users/types'
+import {
+  isProductFlowSsoStartPath,
+  PRODUCTFLOW_SSO_START_PATH,
+} from '../lib/productflow-sso'
 import { saveUserId } from '../lib/storage'
 
 function getSavedLanguage(user: User): string | undefined {
@@ -89,6 +93,14 @@ export function useAuthRedirect() {
     // the server-side redirect flow instead of asking TanStack Router to match
     // an API path.
     const targetPath = redirectTo || '/dashboard'
+    if (isProductFlowSsoStartPath(targetPath)) {
+      navigate({
+        to: '/sign-in',
+        search: { redirect: PRODUCTFLOW_SSO_START_PATH },
+        replace: true,
+      })
+      return
+    }
     if (targetPath.startsWith('/api/')) {
       window.location.assign(targetPath)
       return

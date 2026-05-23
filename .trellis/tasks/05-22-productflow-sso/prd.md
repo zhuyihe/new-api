@@ -13,7 +13,7 @@ Add the minimal New API-side integration required for ProductFlow to behave as a
 - ProductFlow verifies the ticket with a server-to-server New API endpoint protected by a shared secret.
 - Verification consumes the ticket exactly once and returns the New API user identity plus the user's dedicated ProductFlow token to ProductFlow's backend.
 - The browser must never receive the token from New API directly.
-- ProductFlow token provisioning must be configurable by environment variables for token name, model whitelist, group, ticket TTL, and ProductFlow base URL.
+- ProductFlow token provisioning must be configurable through database-backed settings on the New API side, and ProductFlow's matching `new_api_*` runtime settings must also be database-backed. Environment variables must not be required as a runtime fallback for these integration fields.
 - Keep the patch thin and easy to rebase: do not modify New API relay, billing, channel routing, quota settlement, or generic user behavior.
 
 ## Acceptance Criteria
@@ -23,7 +23,7 @@ Add the minimal New API-side integration required for ProductFlow to behave as a
 - [x] `POST /api/productflow/sso/verify` rejects missing or wrong `Authorization: Bearer <secret>`.
 - [x] A valid ticket can be verified once and fails on a second verification attempt.
 - [x] SSO start redirects unauthenticated users to New API sign-in.
-- [x] SSO start for an authenticated user creates or reuses a token named by `PRODUCTFLOW_TOKEN_NAME`, default `ProductFlow`.
+- [x] SSO start for an authenticated user creates or reuses the configured token name, default `ProductFlow`.
 - [x] The token is returned only by server-to-server verification, never through the browser redirect.
 - [x] The new default UI sidebar entry opens the SSO start endpoint in a new tab.
 - [x] Backend tests cover secret validation, single-use ticket behavior, unauthenticated redirect, and token provisioning.
@@ -39,13 +39,10 @@ Add the minimal New API-side integration required for ProductFlow to behave as a
 
 ## Configuration
 
-- `PRODUCTFLOW_BASE_URL`: ProductFlow public URL, for example `https://image.aync.cc.cd`.
-- `PRODUCTFLOW_SSO_SECRET`: shared secret used by ProductFlow backend when verifying tickets.
-- `PRODUCTFLOW_TOKEN_NAME`: New API token name, default `ProductFlow`.
-- `PRODUCTFLOW_TOKEN_MODEL_LIMITS`: optional comma-separated model whitelist assigned to the ProductFlow token.
-- `PRODUCTFLOW_TOKEN_GROUP`: optional New API group assigned to the ProductFlow token.
-- `PRODUCTFLOW_SSO_TICKET_TTL_SECONDS`: one-time ticket TTL, default `60`.
-- `PRODUCTFLOW_SESSION_TTL_SECONDS`: ProductFlow session lifetime hint returned to ProductFlow, default `1209600`.
+- New API stores the ProductFlow bridge settings in database-backed system settings under `productflow_sso.*`.
+- ProductFlow stores its matching New API bridge settings in database-backed runtime settings under `new_api_*`.
+- Environment variables remain reserved for bootstrap secrets and infrastructure wiring, not as the normal configuration source for this bridge.
+- ProductFlow ignores `NEW_API_*` env/.env/file-secret values during bootstrap; only explicit database/runtime overrides or code defaults hydrate these bridge fields.
 
 ## Out Of Scope
 

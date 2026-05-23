@@ -7,6 +7,13 @@ ProductFlow callback:
 - Request header: `Authorization: Bearer <PRODUCTFLOW_SSO_SECRET>`.
 - Request body: `{"ticket":"<ticket>"}`.
 
+Configuration:
+
+- New API stores the bridge settings in database-backed `productflow_sso.*` options.
+- ProductFlow stores its matching New API bridge settings in database-backed `new_api_*` runtime settings.
+- These integration fields are edited through each app's settings UI and must not depend on env fallback at runtime.
+- ProductFlow bootstrap settings must also ignore `NEW_API_*` env/.env/file-secret values so stale deployment variables cannot override or break the database-backed bridge.
+
 Expected New API verify response data:
 
 - `user_id`
@@ -31,3 +38,4 @@ Token behavior:
 - Token name defaults to `ProductFlow`.
 - Token can be created or reused.
 - Recommended token settings are unlimited token quota, optional model whitelist, optional group.
+- Ticket TTL and ProductFlow session TTL are also database-backed settings.

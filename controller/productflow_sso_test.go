@@ -35,7 +35,7 @@ func setupProductFlowSSOTestDB(t *testing.T) *gorm.DB {
 	dsn := "file:" + strings.ReplaceAll(t.Name(), "/", "_") + "?mode=memory&cache=shared"
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.Option{}))
 	model.DB = db
 	model.LOG_DB = db
 
@@ -48,16 +48,42 @@ func setupProductFlowSSOTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func withProductFlowSSOEnv(t *testing.T) {
+func initProductFlowSSOOptions(t *testing.T) {
 	t.Helper()
 
-	t.Setenv("PRODUCTFLOW_BASE_URL", "https://image.example.com")
-	t.Setenv("PRODUCTFLOW_SSO_SECRET", "test-secret")
-	t.Setenv("PRODUCTFLOW_TOKEN_NAME", "ProductFlow")
-	t.Setenv("PRODUCTFLOW_TOKEN_MODEL_LIMITS", " gpt-image-1, veo-3 , seedance-1 ")
-	t.Setenv("PRODUCTFLOW_TOKEN_GROUP", "image")
-	t.Setenv("PRODUCTFLOW_SSO_TICKET_TTL_SECONDS", "60")
-	t.Setenv("PRODUCTFLOW_SESSION_TTL_SECONDS", "3600")
+	model.InitOptionMap()
+}
+
+func seedProductFlowSSOOptions(t *testing.T, values map[string]string) {
+	t.Helper()
+
+	for key, value := range values {
+		require.NoError(t, model.UpdateOption(key, value))
+	}
+}
+
+func seedProductFlowSSODefaultOptions(t *testing.T) {
+	t.Helper()
+
+	seedProductFlowSSOOptions(t, map[string]string{
+		productFlowOptionBaseURL:          "https://image.example.com",
+		productFlowOptionSharedSecret:     "test-secret",
+		productFlowOptionTokenName:        "ProductFlow",
+		productFlowOptionTokenModelLimits: " gpt-image-1, veo-3 , seedance-1 ",
+		productFlowOptionTokenGroup:       "image",
+		productFlowOptionTicketTTL:        "60",
+		productFlowOptionSessionTTL:       "3600",
+	})
+}
+
+func prepareProductFlowSSOTest(t *testing.T) *gorm.DB {
+	t.Helper()
+
+	db := setupProductFlowSSOTestDB(t)
+	initProductFlowSSOOptions(t)
+	seedProductFlowSSODefaultOptions(t)
+	resetProductFlowMemoryTickets(t)
+	return db
 }
 
 func resetProductFlowMemoryTickets(t *testing.T) {
@@ -123,8 +149,7 @@ func decodeProductFlowResponse(t *testing.T, recorder *httptest.ResponseRecorder
 }
 
 func TestProductFlowStartRedirectsUnauthenticatedUsersToSignIn(t *testing.T) {
-	withProductFlowSSOEnv(t)
-	resetProductFlowMemoryTickets(t)
+	prepareProductFlowSSOTest(t)
 	router := productFlowSSORouter()
 
 	recorder := httptest.NewRecorder()
@@ -135,10 +160,29 @@ func TestProductFlowStartRedirectsUnauthenticatedUsersToSignIn(t *testing.T) {
 	require.Equal(t, "/sign-in?redirect=%2Fapi%2Fproductflow%2Fsso%2Fstart", recorder.Header().Get("Location"))
 }
 
+func TestProductFlowConfigIgnoresEnvDefaults(t *testing.T) {
+	setupProductFlowSSOTestDB(t)
+	t.Setenv("PRODUCTFLOW_BASE_URL", "https://env.example.com")
+	t.Setenv("PRODUCTFLOW_SSO_SECRET", "env-secret")
+	t.Setenv("PRODUCTFLOW_TOKEN_NAME", "EnvFlow")
+	t.Setenv("PRODUCTFLOW_TOKEN_MODEL_LIMITS", " env-only-model ")
+	t.Setenv("PRODUCTFLOW_TOKEN_GROUP", "env-group")
+	t.Setenv("PRODUCTFLOW_SSO_TICKET_TTL_SECONDS", "900")
+	t.Setenv("PRODUCTFLOW_SESSION_TTL_SECONDS", "1800")
+	initProductFlowSSOOptions(t)
+
+	cfg := getProductFlowSSOConfig()
+	require.Empty(t, cfg.BaseURL)
+	require.Empty(t, cfg.SharedSecret)
+	require.Equal(t, "ProductFlow", cfg.TokenName)
+	require.Empty(t, cfg.TokenModelLimits)
+	require.Empty(t, cfg.TokenGroup)
+	require.Equal(t, productFlowDefaultTicketTTL, cfg.TicketTTLSeconds)
+	require.Equal(t, productFlowDefaultSessionTTL, cfg.SessionTTLSeconds)
+}
+
 func TestProductFlowStartRejectsDisabledUsers(t *testing.T) {
-	db := setupProductFlowSSOTestDB(t)
-	withProductFlowSSOEnv(t)
-	resetProductFlowMemoryTickets(t)
+	db := prepareProductFlowSSOTest(t)
 	router := productFlowSSORouter()
 	user := seedProductFlowUser(t, db)
 	user.Status = common.UserStatusDisabled
@@ -156,9 +200,7 @@ func TestProductFlowStartRejectsDisabledUsers(t *testing.T) {
 }
 
 func TestProductFlowStartCreatesTokenAndRedirectsWithOneTimeTicket(t *testing.T) {
-	db := setupProductFlowSSOTestDB(t)
-	withProductFlowSSOEnv(t)
-	resetProductFlowMemoryTickets(t)
+	db := prepareProductFlowSSOTest(t)
 	router := productFlowSSORouter()
 	user := seedProductFlowUser(t, db)
 	cookies := loginProductFlowSession(t, router, user)
@@ -205,9 +247,7 @@ func TestProductFlowStartCreatesTokenAndRedirectsWithOneTimeTicket(t *testing.T)
 }
 
 func TestProductFlowTokenIsReusedAndUpdatedFromConfig(t *testing.T) {
-	db := setupProductFlowSSOTestDB(t)
-	withProductFlowSSOEnv(t)
-	resetProductFlowMemoryTickets(t)
+	db := prepareProductFlowSSOTest(t)
 	user := seedProductFlowUser(t, db)
 	existing := model.Token{
 		UserId:             user.Id,
@@ -237,4 +277,49 @@ func TestProductFlowTokenIsReusedAndUpdatedFromConfig(t *testing.T) {
 	require.Equal(t, "gpt-image-1,veo-3,seedance-1", token.ModelLimits)
 	require.Equal(t, "image", token.Group)
 	require.False(t, token.CrossGroupRetry)
+}
+
+func TestProductFlowStartUsesDatabaseBackedOptions(t *testing.T) {
+	db := prepareProductFlowSSOTest(t)
+
+	require.NoError(t, model.UpdateOption(productFlowOptionBaseURL, "https://db.example.com/"))
+	require.NoError(t, model.UpdateOption(productFlowOptionSharedSecret, "db-secret"))
+	require.NoError(t, model.UpdateOption(productFlowOptionTokenName, "ProductFlow DB"))
+	require.NoError(t, model.UpdateOption(productFlowOptionTokenModelLimits, " veo-3 , gpt-image-1 "))
+	require.NoError(t, model.UpdateOption(productFlowOptionTokenGroup, "db-image"))
+	require.NoError(t, model.UpdateOption(productFlowOptionTicketTTL, "90"))
+	require.NoError(t, model.UpdateOption(productFlowOptionSessionTTL, "7200"))
+
+	router := productFlowSSORouter()
+	user := seedProductFlowUser(t, db)
+	cookies := loginProductFlowSession(t, router, user)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/productflow/sso/start", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusFound, recorder.Code)
+	redirectURL := recorder.Header().Get("Location")
+	require.True(t, strings.HasPrefix(redirectURL, "https://db.example.com/auth/new-api/callback?ticket="))
+
+	ticket := strings.TrimPrefix(redirectURL, "https://db.example.com/auth/new-api/callback?ticket=")
+	verify := httptest.NewRecorder()
+	verifyReq := httptest.NewRequest(http.MethodPost, "/api/productflow/sso/verify", bytes.NewBufferString(`{"ticket":"`+ticket+`"}`))
+	verifyReq.Header.Set("Content-Type", "application/json")
+	verifyReq.Header.Set("Authorization", "Bearer db-secret")
+	router.ServeHTTP(verify, verifyReq)
+
+	require.Equal(t, http.StatusOK, verify.Code)
+	response := decodeProductFlowResponse(t, verify)
+	require.True(t, response.Success)
+	require.Equal(t, "ProductFlow DB", response.Data.TokenName)
+	require.Equal(t, 7200, response.Data.ExpiresInSeconds)
+
+	var token model.Token
+	require.NoError(t, db.First(&token, "user_id = ? AND name = ?", user.Id, "ProductFlow DB").Error)
+	require.Equal(t, "veo-3,gpt-image-1", token.ModelLimits)
+	require.Equal(t, "db-image", token.Group)
 }
