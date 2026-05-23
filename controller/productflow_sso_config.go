@@ -127,6 +127,22 @@ func (cfg productFlowSSOConfig) validateForVerify() error {
 	return nil
 }
 
+func WarnIfProductFlowSSOTicketFallbackIsRiskyOnStartup() {
+	cfg := getProductFlowSSOConfig()
+	if common.RedisEnabled {
+		return
+	}
+	if err := cfg.validateForStart(); err != nil {
+		return
+	}
+	common.SysLog(
+		"WARN: productflow_sso is configured, but Redis is disabled; " +
+			"ticket storage falls back to in-process memory and only " +
+			"supports single-process deployments. See " +
+			".trellis/spec/backend/productflow-sso.md#8-deployment-modes.",
+	)
+}
+
 func normalizeCSV(value string) string {
 	parts := strings.Split(value, ",")
 	normalized := make([]string, 0, len(parts))

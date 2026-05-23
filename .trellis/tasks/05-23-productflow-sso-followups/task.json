@@ -1,0 +1,33 @@
+{
+  "id": "productflow-sso-followups",
+  "name": "productflow-sso-followups",
+  "title": "ProductFlow SSO Followups - Startup WARN and Deployment Mode Doc",
+  "description": "Minor new-api follow-ups discovered during the 2026-05-23 grill-me audit of ProductFlow's image.aync.cc.cd hardening. Adds one startup WARN when the in-memory ticket fallback is in play under productflow_sso config, and a deployment-mode section to the SSO contract spec.",
+  "status": "pending",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "name",
+  "assignee": "name",
+  "createdAt": "2026-05-23",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "productflow-sso",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "productflow-sso",
+  "relatedFiles": [
+    "controller/productflow_sso.go",
+    "controller/productflow_sso_ticket.go",
+    ".trellis/spec/backend/productflow-sso.md"
+  ],
+  "notes": "Sibling task to ProductFlow's multitenant-hardening work. Scope is intentionally tiny so it lands as a separate PR.",
+  "meta": {
+    "audit_session": "2026-05-23",
+    "related_productflow_task": "multitenant-hardening"
+  }
+}

@@ -105,3 +105,17 @@ c.Redirect(http.StatusFound, callbackURLWithTicket)
 // Store the ticket without routing token material through value-logging helpers.
 common.RDB.Set(context.Background(), ticketKey, string(payload), ttl).Err()
 ```
+
+### 8. Deployment Modes
+
+| Deployment | Redis enabled | Supported |
+|---|---:|---|
+| Single process | Yes | Yes |
+| Single process | No | Yes, with in-memory ticket fallback |
+| Multi process or multi instance | Yes | Yes |
+| Multi process or multi instance | No | No, SSO ticket reuse will fail across processes |
+
+When `productflow_sso` is configured and Redis is disabled, new-api logs a
+startup `WARN` because ticket storage falls back to process-local memory.
+Multi-process deployments must enable Redis for ProductFlow SSO to remain
+reliable.
