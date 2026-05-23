@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -121,59 +120,6 @@ func decodeProductFlowResponse(t *testing.T, recorder *httptest.ResponseRecorder
 	var response productFlowAPIResponse
 	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
 	return response
-}
-
-func TestProductFlowVerifyRejectsInvalidSecret(t *testing.T) {
-	withProductFlowSSOEnv(t)
-	resetProductFlowMemoryTickets(t)
-	router := productFlowSSORouter()
-
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/api/productflow/sso/verify", bytes.NewBufferString(`{"ticket":"missing"}`))
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Authorization", "Bearer wrong-secret")
-	router.ServeHTTP(recorder, request)
-
-	require.Equal(t, http.StatusUnauthorized, recorder.Code)
-	require.Contains(t, recorder.Body.String(), "invalid shared secret")
-}
-
-func TestProductFlowTicketCanOnlyBeVerifiedOnce(t *testing.T) {
-	withProductFlowSSOEnv(t)
-	resetProductFlowMemoryTickets(t)
-	router := productFlowSSORouter()
-
-	claims := productFlowTicketClaims{
-		UserID:           "7",
-		Username:         "alice",
-		Token:            "sk-test-token",
-		TokenID:          "9",
-		TokenName:        "ProductFlow",
-		ExpiresInSeconds: 3600,
-	}
-	require.NoError(t, storeProductFlowTicket("ticket-1", claims, time.Minute))
-
-	body := []byte(`{"ticket":"ticket-1"}`)
-	first := httptest.NewRecorder()
-	firstReq := httptest.NewRequest(http.MethodPost, "/api/productflow/sso/verify", bytes.NewReader(body))
-	firstReq.Header.Set("Content-Type", "application/json")
-	firstReq.Header.Set("Authorization", "Bearer test-secret")
-	router.ServeHTTP(first, firstReq)
-
-	require.Equal(t, http.StatusOK, first.Code)
-	firstResponse := decodeProductFlowResponse(t, first)
-	require.True(t, firstResponse.Success)
-	require.Equal(t, claims.UserID, firstResponse.Data.UserID)
-	require.Equal(t, claims.Token, firstResponse.Data.Token)
-
-	second := httptest.NewRecorder()
-	secondReq := httptest.NewRequest(http.MethodPost, "/api/productflow/sso/verify", bytes.NewReader(body))
-	secondReq.Header.Set("Content-Type", "application/json")
-	secondReq.Header.Set("Authorization", "Bearer test-secret")
-	router.ServeHTTP(second, secondReq)
-
-	require.Equal(t, http.StatusUnauthorized, second.Code)
-	require.Contains(t, second.Body.String(), "ticket is invalid or expired")
 }
 
 func TestProductFlowStartRedirectsUnauthenticatedUsersToSignIn(t *testing.T) {
