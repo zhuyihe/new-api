@@ -11,18 +11,19 @@ import (
 )
 
 const (
-	productFlowDefaultTokenName  = "ProductFlow"
-	productFlowDefaultTicketTTL  = 60
-	productFlowDefaultSessionTTL = 14 * 24 * 60 * 60
+	productFlowDefaultTokenName       = "ProductFlow"
+	productFlowDefaultTicketTTL       = 60
+	productFlowDefaultSessionTTL      = 14 * 24 * 60 * 60
+	productFlowDefaultAdminSessionTTL = 60 * 60
 
-	productFlowOptionBaseURL          = "productflow_sso.base_url"
-	productFlowOptionSharedSecret     = "productflow_sso.shared_secret"
-	productFlowOptionTokenName        = "productflow_sso.token_name"
-	productFlowOptionTokenModelLimits = "productflow_sso.token_model_limits"
-	productFlowOptionTokenGroup       = "productflow_sso.token_group"
-	productFlowOptionTicketTTL        = "productflow_sso.ticket_ttl_seconds"
-	productFlowOptionSessionTTL       = "productflow_sso.session_ttl_seconds"
-	productFlowOptionEnabled          = "productflow_sso.enabled"
+	productFlowOptionBaseURL         = "productflow_sso.base_url"
+	productFlowOptionSharedSecret    = "productflow_sso.shared_secret"
+	productFlowOptionTokenName       = "productflow_sso.token_name"
+	productFlowOptionTokenGroup      = "productflow_sso.token_group"
+	productFlowOptionTicketTTL       = "productflow_sso.ticket_ttl_seconds"
+	productFlowOptionSessionTTL      = "productflow_sso.session_ttl_seconds"
+	productFlowOptionAdminSessionTTL = "productflow_sso.admin_session_ttl_seconds"
+	productFlowOptionEnabled         = "productflow_sso.enabled"
 )
 
 // errSSODisabled is a sentinel returned by validateForStart when the
@@ -32,14 +33,14 @@ const (
 var errSSODisabled = errors.New("ProductFlow SSO is disabled")
 
 type productFlowSSOConfig struct {
-	Enabled           bool
-	BaseURL           string
-	SharedSecret      string
-	TokenName         string
-	TokenModelLimits  string
-	TokenGroup        string
-	TicketTTLSeconds  int
-	SessionTTLSeconds int
+	Enabled                bool
+	BaseURL                string
+	SharedSecret           string
+	TokenName              string
+	TokenGroup             string
+	TicketTTLSeconds       int
+	SessionTTLSeconds      int
+	AdminSessionTTLSeconds int
 }
 
 func getProductFlowSSOConfig() productFlowSSOConfig {
@@ -64,6 +65,13 @@ func getProductFlowSSOConfig() productFlowSSOConfig {
 	if sessionTTL <= 0 {
 		sessionTTL = productFlowDefaultSessionTTL
 	}
+	adminSessionTTL := getProductFlowOptionInt(
+		productFlowOptionAdminSessionTTL,
+		productFlowDefaultAdminSessionTTL,
+	)
+	if adminSessionTTL <= 0 {
+		adminSessionTTL = productFlowDefaultAdminSessionTTL
+	}
 	return productFlowSSOConfig{
 		Enabled: getProductFlowOptionBool(productFlowOptionEnabled, true),
 		BaseURL: getProductFlowOptionString(
@@ -75,16 +83,13 @@ func getProductFlowSSOConfig() productFlowSSOConfig {
 			"",
 		),
 		TokenName: tokenName,
-		TokenModelLimits: normalizeCSV(getProductFlowOptionString(
-			productFlowOptionTokenModelLimits,
-			"",
-		)),
 		TokenGroup: getProductFlowOptionString(
 			productFlowOptionTokenGroup,
 			"",
 		),
-		TicketTTLSeconds:  ticketTTL,
-		SessionTTLSeconds: sessionTTL,
+		TicketTTLSeconds:       ticketTTL,
+		SessionTTLSeconds:      sessionTTL,
+		AdminSessionTTLSeconds: adminSessionTTL,
 	}
 }
 
@@ -197,16 +202,4 @@ func WarnIfProductFlowSSOTicketFallbackIsRiskyOnStartup() {
 			"supports single-process deployments. See " +
 			".trellis/spec/backend/productflow-sso.md#8-deployment-modes.",
 	)
-}
-
-func normalizeCSV(value string) string {
-	parts := strings.Split(value, ",")
-	normalized := make([]string, 0, len(parts))
-	for _, part := range parts {
-		item := strings.TrimSpace(part)
-		if item != "" {
-			normalized = append(normalized, item)
-		}
-	}
-	return strings.Join(normalized, ",")
 }

@@ -108,13 +108,14 @@ func validateProductFlowOptionValue(key string, value string) (string, error) {
 			return productFlowDefaultTokenName, nil
 		}
 		return trimmed, nil
-	case productFlowOptionTokenModelLimits:
-		return normalizeCSV(value), nil
-	case productFlowOptionTicketTTL, productFlowOptionSessionTTL:
+	case productFlowOptionTicketTTL, productFlowOptionSessionTTL, productFlowOptionAdminSessionTTL:
 		trimmed := strings.TrimSpace(value)
 		if trimmed == "" {
 			if key == productFlowOptionTicketTTL {
 				return strconv.Itoa(productFlowDefaultTicketTTL), nil
+			}
+			if key == productFlowOptionAdminSessionTTL {
+				return strconv.Itoa(productFlowDefaultAdminSessionTTL), nil
 			}
 			return strconv.Itoa(productFlowDefaultSessionTTL), nil
 		}

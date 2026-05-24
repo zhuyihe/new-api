@@ -45,7 +45,6 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { SettingsSection } from '../components/settings-section'
 import { useResetForm } from '../hooks/use-reset-form'
 import {
@@ -65,7 +64,6 @@ const createProductFlowSSOSchema = (t: (key: string) => string) =>
     }, t('Provide a valid URL starting with http:// or https://')),
     'productflow_sso.shared_secret': z.string(),
     'productflow_sso.token_name': z.string(),
-    'productflow_sso.token_model_limits': z.string(),
     'productflow_sso.token_group': z.string(),
     'productflow_sso.ticket_ttl_seconds': z.string().refine((value) => {
       const trimmed = value.trim()
@@ -74,6 +72,12 @@ const createProductFlowSSOSchema = (t: (key: string) => string) =>
       return Number.isInteger(parsed) && parsed > 0
     }, t('Enter a positive integer')),
     'productflow_sso.session_ttl_seconds': z.string().refine((value) => {
+      const trimmed = value.trim()
+      if (!trimmed) return false
+      const parsed = Number(trimmed)
+      return Number.isInteger(parsed) && parsed > 0
+    }, t('Enter a positive integer')),
+    'productflow_sso.admin_session_ttl_seconds': z.string().refine((value) => {
       const trimmed = value.trim()
       if (!trimmed) return false
       const parsed = Number(trimmed)
@@ -93,10 +97,10 @@ type ProductFlowSSOSettingsSectionProps = {
     'productflow_sso.base_url': string
     'productflow_sso.shared_secret': string
     'productflow_sso.token_name': string
-    'productflow_sso.token_model_limits': string
     'productflow_sso.token_group': string
     'productflow_sso.ticket_ttl_seconds': number
     'productflow_sso.session_ttl_seconds': number
+    'productflow_sso.admin_session_ttl_seconds': number
     'productflow_sso.enabled': boolean
   }
 }
@@ -106,18 +110,11 @@ type NormalizedProductFlowSSOValues = {
   'productflow_sso.base_url': string
   'productflow_sso.shared_secret': string
   'productflow_sso.token_name': string
-  'productflow_sso.token_model_limits': string
   'productflow_sso.token_group': string
   'productflow_sso.ticket_ttl_seconds': string
   'productflow_sso.session_ttl_seconds': string
+  'productflow_sso.admin_session_ttl_seconds': string
 }
-
-const normalizeCsv = (value: string) =>
-  value
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .join(',')
 
 type BaseUrlAdvisoryLevel = 'ok' | 'warn-https' | 'warn-loopback' | 'warn-private'
 
@@ -208,8 +205,6 @@ const buildFormDefaults = (
     defaults['productflow_sso.shared_secret'] ?? '',
   'productflow_sso.token_name':
     defaults['productflow_sso.token_name'] ?? 'ProductFlow',
-  'productflow_sso.token_model_limits':
-    defaults['productflow_sso.token_model_limits'] ?? '',
   'productflow_sso.token_group':
     defaults['productflow_sso.token_group'] ?? '',
   'productflow_sso.ticket_ttl_seconds': String(
@@ -217,6 +212,9 @@ const buildFormDefaults = (
   ),
   'productflow_sso.session_ttl_seconds': String(
     defaults['productflow_sso.session_ttl_seconds'] ?? 1209600
+  ),
+  'productflow_sso.admin_session_ttl_seconds': String(
+    defaults['productflow_sso.admin_session_ttl_seconds'] ?? 3600
   ),
 })
 
@@ -231,9 +229,6 @@ const normalizeDefaults = (
     defaults['productflow_sso.shared_secret'] ?? '',
   'productflow_sso.token_name':
     defaults['productflow_sso.token_name'] ?? 'ProductFlow',
-  'productflow_sso.token_model_limits': normalizeCsv(
-    defaults['productflow_sso.token_model_limits'] ?? ''
-  ),
   'productflow_sso.token_group':
     defaults['productflow_sso.token_group'] ?? '',
   'productflow_sso.ticket_ttl_seconds': String(
@@ -241,6 +236,9 @@ const normalizeDefaults = (
   ).trim(),
   'productflow_sso.session_ttl_seconds': String(
     defaults['productflow_sso.session_ttl_seconds'] ?? 1209600
+  ).trim(),
+  'productflow_sso.admin_session_ttl_seconds': String(
+    defaults['productflow_sso.admin_session_ttl_seconds'] ?? 3600
   ).trim(),
 })
 
@@ -254,15 +252,14 @@ const normalizeFormValues = (
   'productflow_sso.shared_secret':
     values['productflow_sso.shared_secret'].trim(),
   'productflow_sso.token_name': values['productflow_sso.token_name'].trim(),
-  'productflow_sso.token_model_limits': normalizeCsv(
-    values['productflow_sso.token_model_limits']
-  ),
   'productflow_sso.token_group':
     values['productflow_sso.token_group'].trim(),
   'productflow_sso.ticket_ttl_seconds':
     values['productflow_sso.ticket_ttl_seconds'].trim(),
   'productflow_sso.session_ttl_seconds':
     values['productflow_sso.session_ttl_seconds'].trim(),
+  'productflow_sso.admin_session_ttl_seconds':
+    values['productflow_sso.admin_session_ttl_seconds'].trim(),
 })
 
 export function ProductFlowSSOSettingsSection({
@@ -553,30 +550,6 @@ export function ProductFlowSSOSettingsSection({
             />
           </div>
 
-          <FormField
-            control={form.control}
-            name='productflow_sso.token_model_limits'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('Token model whitelist')}</FormLabel>
-                <FormControl>
-                  <Textarea
-                    rows={4}
-                    placeholder={t('gpt-image-1, veo-3, seedance-1')}
-                    {...field}
-                    onChange={(event) => field.onChange(event.target.value)}
-                  />
-                </FormControl>
-                <FormDescription>
-                  {t(
-                    'Comma-separated models allowed for the ProductFlow token.'
-                  )}
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
           <div className='grid gap-6 md:grid-cols-2'>
             <FormField
               control={form.control}
@@ -644,6 +617,40 @@ export function ProductFlowSSOSettingsSection({
                     </FormControl>
                     <FormDescription>
                       {t('Lifetime hint returned to ProductFlow after login.')}
+                      {human && (
+                        <span className='ml-1 text-muted-foreground'>
+                          ({human})
+                        </span>
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )
+              }}
+            />
+
+            <FormField
+              control={form.control}
+              name='productflow_sso.admin_session_ttl_seconds'
+              render={({ field }) => {
+                const value = String(field.value ?? '')
+                const human = formatTtlSeconds(value)
+                return (
+                  <FormItem>
+                    <FormLabel>{t('Admin session TTL (seconds)')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={1}
+                        step={1}
+                        value={value}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Lifetime hint returned for admin and root ProductFlow sessions.',
+                      )}
                       {human && (
                         <span className='ml-1 text-muted-foreground'>
                           ({human})

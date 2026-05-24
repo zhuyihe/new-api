@@ -60,10 +60,10 @@ Database-backed option keys:
 - `productflow_sso.base_url`: required for SSO start, for example `https://image.aync.cc.cd`.
 - `productflow_sso.shared_secret`: required for verify.
 - `productflow_sso.token_name`: optional, defaults to `ProductFlow`.
-- `productflow_sso.token_model_limits`: optional comma-separated model whitelist; whitespace is trimmed.
 - `productflow_sso.token_group`: optional token group.
 - `productflow_sso.ticket_ttl_seconds`: optional, defaults to `60`.
 - `productflow_sso.session_ttl_seconds`: optional, defaults to `1209600`.
+- `productflow_sso.admin_session_ttl_seconds`: optional, defaults to `3600`.
 - `productflow_sso.last_test_result`: managed by `POST /api/productflow/sso/test`;
   not editable from the settings form.
 
@@ -82,6 +82,10 @@ Verify response `data` fields:
 - `token_id`
 - `token_name`
 - `expires_in`
+
+`role` is serialized as the decimal string form of the New API user role.
+`expires_in` uses `session_ttl_seconds` for ordinary users and
+`admin_session_ttl_seconds` for admin/root users.
 
 Security contract:
 
@@ -107,6 +111,8 @@ Security contract:
   failing key is returned in `failed_keys`.
 - Batch save transaction failure -> `500` with a generic message; the raw
   cause is logged via `common.SysError` (never returned to the client).
+- Admin/root role tickets use `admin_session_ttl_seconds`; ordinary user
+  tickets use `session_ttl_seconds`.
 - Test connection transport failure -> `200` with a `network_error`
   category whose `message` is a fixed string (no raw exception text).
 - Status callback preview with a base URL path segment -> canonical callback
@@ -134,6 +140,8 @@ Security contract:
 - Test endpoint classifies happy / network_error / application_error
   responses correctly and persists `last_test_result` for the status
   endpoint to surface.
+- Admin/root role tickets use the admin TTL while ordinary user tickets
+  keep the normal session TTL.
 - ProductFlow `/api/health/sso` returns the documented schema and the
   7th request from the same client in a minute is rate-limited (`429`).
 

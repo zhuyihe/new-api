@@ -66,13 +66,13 @@ func seedProductFlowSSODefaultOptions(t *testing.T) {
 	t.Helper()
 
 	seedProductFlowSSOOptions(t, map[string]string{
-		productFlowOptionBaseURL:          "https://image.example.com",
-		productFlowOptionSharedSecret:     "test-secret",
-		productFlowOptionTokenName:        "ProductFlow",
-		productFlowOptionTokenModelLimits: " gpt-image-1, veo-3 , seedance-1 ",
-		productFlowOptionTokenGroup:       "image",
-		productFlowOptionTicketTTL:        "60",
-		productFlowOptionSessionTTL:       "3600",
+		productFlowOptionBaseURL:         "https://image.example.com",
+		productFlowOptionSharedSecret:    "test-secret",
+		productFlowOptionTokenName:       "ProductFlow",
+		productFlowOptionTokenGroup:      "image",
+		productFlowOptionTicketTTL:       "60",
+		productFlowOptionSessionTTL:      "3600",
+		productFlowOptionAdminSessionTTL: "3600",
 	})
 }
 
@@ -165,7 +165,6 @@ func TestProductFlowConfigIgnoresEnvDefaults(t *testing.T) {
 	t.Setenv("PRODUCTFLOW_BASE_URL", "https://env.example.com")
 	t.Setenv("PRODUCTFLOW_SSO_SECRET", "env-secret")
 	t.Setenv("PRODUCTFLOW_TOKEN_NAME", "EnvFlow")
-	t.Setenv("PRODUCTFLOW_TOKEN_MODEL_LIMITS", " env-only-model ")
 	t.Setenv("PRODUCTFLOW_TOKEN_GROUP", "env-group")
 	t.Setenv("PRODUCTFLOW_SSO_TICKET_TTL_SECONDS", "900")
 	t.Setenv("PRODUCTFLOW_SESSION_TTL_SECONDS", "1800")
@@ -175,10 +174,10 @@ func TestProductFlowConfigIgnoresEnvDefaults(t *testing.T) {
 	require.Empty(t, cfg.BaseURL)
 	require.Empty(t, cfg.SharedSecret)
 	require.Equal(t, "ProductFlow", cfg.TokenName)
-	require.Empty(t, cfg.TokenModelLimits)
 	require.Empty(t, cfg.TokenGroup)
 	require.Equal(t, productFlowDefaultTicketTTL, cfg.TicketTTLSeconds)
 	require.Equal(t, productFlowDefaultSessionTTL, cfg.SessionTTLSeconds)
+	require.Equal(t, productFlowDefaultAdminSessionTTL, cfg.AdminSessionTTLSeconds)
 }
 
 func TestProductFlowStartRejectsDisabledUsers(t *testing.T) {
@@ -221,8 +220,8 @@ func TestProductFlowStartCreatesTokenAndRedirectsWithOneTimeTicket(t *testing.T)
 	require.NoError(t, db.First(&token, "user_id = ? AND name = ?", user.Id, "ProductFlow").Error)
 	require.Equal(t, common.TokenStatusEnabled, token.Status)
 	require.True(t, token.UnlimitedQuota)
-	require.True(t, token.ModelLimitsEnabled)
-	require.Equal(t, "gpt-image-1,veo-3,seedance-1", token.ModelLimits)
+	require.False(t, token.ModelLimitsEnabled)
+	require.Empty(t, token.ModelLimits)
 	require.Equal(t, "image", token.Group)
 	require.Equal(t, int64(-1), token.ExpiredTime)
 
@@ -244,6 +243,41 @@ func TestProductFlowStartCreatesTokenAndRedirectsWithOneTimeTicket(t *testing.T)
 	require.Equal(t, "sk-"+token.Key, response.Data.Token)
 	require.NotEmpty(t, response.Data.TokenID)
 	require.Equal(t, 3600, response.Data.ExpiresInSeconds)
+}
+
+func TestProductFlowStartUsesAdminSessionTTLForAdminUsers(t *testing.T) {
+	db := prepareProductFlowSSOTest(t)
+	router := productFlowSSORouter()
+	user := seedProductFlowUser(t, db)
+	user.Role = common.RoleAdminUser
+	require.NoError(t, db.Save(&user).Error)
+	require.NoError(t, model.UpdateOption(productFlowOptionSessionTTL, "7200"))
+	require.NoError(t, model.UpdateOption(productFlowOptionAdminSessionTTL, "900"))
+	cookies := loginProductFlowSession(t, router, user)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/productflow/sso/start", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusFound, recorder.Code)
+	ticket := strings.TrimPrefix(
+		recorder.Header().Get("Location"),
+		"https://image.example.com/auth/new-api/callback?ticket=",
+	)
+
+	verify := httptest.NewRecorder()
+	verifyReq := httptest.NewRequest(http.MethodPost, "/api/productflow/sso/verify", bytes.NewBufferString(`{"ticket":"`+ticket+`"}`))
+	verifyReq.Header.Set("Content-Type", "application/json")
+	verifyReq.Header.Set("Authorization", "Bearer test-secret")
+	router.ServeHTTP(verify, verifyReq)
+
+	require.Equal(t, http.StatusOK, verify.Code)
+	response := decodeProductFlowResponse(t, verify)
+	require.Equal(t, "10", response.Data.Role)
+	require.Equal(t, 900, response.Data.ExpiresInSeconds)
 }
 
 func TestProductFlowTokenIsReusedAndUpdatedFromConfig(t *testing.T) {
@@ -273,8 +307,8 @@ func TestProductFlowTokenIsReusedAndUpdatedFromConfig(t *testing.T) {
 	require.Equal(t, common.TokenStatusEnabled, token.Status)
 	require.Equal(t, int64(-1), token.ExpiredTime)
 	require.True(t, token.UnlimitedQuota)
-	require.True(t, token.ModelLimitsEnabled)
-	require.Equal(t, "gpt-image-1,veo-3,seedance-1", token.ModelLimits)
+	require.False(t, token.ModelLimitsEnabled)
+	require.Empty(t, token.ModelLimits)
 	require.Equal(t, "image", token.Group)
 	require.False(t, token.CrossGroupRetry)
 }
@@ -285,10 +319,10 @@ func TestProductFlowStartUsesDatabaseBackedOptions(t *testing.T) {
 	require.NoError(t, model.UpdateOption(productFlowOptionBaseURL, "https://db.example.com/"))
 	require.NoError(t, model.UpdateOption(productFlowOptionSharedSecret, "db-secret"))
 	require.NoError(t, model.UpdateOption(productFlowOptionTokenName, "ProductFlow DB"))
-	require.NoError(t, model.UpdateOption(productFlowOptionTokenModelLimits, " veo-3 , gpt-image-1 "))
 	require.NoError(t, model.UpdateOption(productFlowOptionTokenGroup, "db-image"))
 	require.NoError(t, model.UpdateOption(productFlowOptionTicketTTL, "90"))
 	require.NoError(t, model.UpdateOption(productFlowOptionSessionTTL, "7200"))
+	require.NoError(t, model.UpdateOption(productFlowOptionAdminSessionTTL, "1800"))
 
 	router := productFlowSSORouter()
 	user := seedProductFlowUser(t, db)
@@ -320,6 +354,7 @@ func TestProductFlowStartUsesDatabaseBackedOptions(t *testing.T) {
 
 	var token model.Token
 	require.NoError(t, db.First(&token, "user_id = ? AND name = ?", user.Id, "ProductFlow DB").Error)
-	require.Equal(t, "veo-3,gpt-image-1", token.ModelLimits)
+	require.False(t, token.ModelLimitsEnabled)
+	require.Empty(t, token.ModelLimits)
 	require.Equal(t, "db-image", token.Group)
 }

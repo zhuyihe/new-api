@@ -91,8 +91,8 @@ func createProductFlowToken(userID int, cfg productFlowSSOConfig) (*model.Token,
 		ExpiredTime:        -1,
 		RemainQuota:        0,
 		UnlimitedQuota:     true,
-		ModelLimitsEnabled: cfg.TokenModelLimits != "",
-		ModelLimits:        cfg.TokenModelLimits,
+		ModelLimitsEnabled: false,
+		ModelLimits:        "",
 		Group:              cfg.TokenGroup,
 		CrossGroupRetry:    false,
 	}
@@ -106,8 +106,8 @@ func updateProductFlowToken(token *model.Token, cfg productFlowSSOConfig) (*mode
 	token.Status = common.TokenStatusEnabled
 	token.ExpiredTime = -1
 	token.UnlimitedQuota = true
-	token.ModelLimitsEnabled = cfg.TokenModelLimits != ""
-	token.ModelLimits = cfg.TokenModelLimits
+	token.ModelLimitsEnabled = false
+	token.ModelLimits = ""
 	token.Group = cfg.TokenGroup
 	token.CrossGroupRetry = false
 	if err := token.Update(); err != nil {

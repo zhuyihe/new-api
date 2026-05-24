@@ -175,6 +175,13 @@ func newProductFlowTicketClaims(user *model.User, token *model.Token, cfg produc
 		Token:            "sk-" + token.Key,
 		TokenID:          strconv.Itoa(token.Id),
 		TokenName:        token.Name,
-		ExpiresInSeconds: cfg.SessionTTLSeconds,
+		ExpiresInSeconds: productFlowSessionTTLForRole(user.Role, cfg),
 	}
+}
+
+func productFlowSessionTTLForRole(role int, cfg productFlowSSOConfig) int {
+	if role >= common.RoleAdminUser {
+		return cfg.AdminSessionTTLSeconds
+	}
+	return cfg.SessionTTLSeconds
 }

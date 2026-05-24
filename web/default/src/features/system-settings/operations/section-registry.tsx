@@ -110,14 +110,14 @@ const OPERATIONS_SECTIONS = [
           'productflow_sso.shared_secret':
             settings['productflow_sso.shared_secret'],
           'productflow_sso.token_name': settings['productflow_sso.token_name'],
-          'productflow_sso.token_model_limits':
-            settings['productflow_sso.token_model_limits'],
           'productflow_sso.token_group':
             settings['productflow_sso.token_group'],
           'productflow_sso.ticket_ttl_seconds':
             settings['productflow_sso.ticket_ttl_seconds'],
           'productflow_sso.session_ttl_seconds':
             settings['productflow_sso.session_ttl_seconds'],
+          'productflow_sso.admin_session_ttl_seconds':
+            settings['productflow_sso.admin_session_ttl_seconds'],
           'productflow_sso.enabled': settings['productflow_sso.enabled'],
         }}
       />

@@ -300,10 +300,10 @@ export type OperationsSettings = {
   'productflow_sso.base_url': string
   'productflow_sso.shared_secret': string
   'productflow_sso.token_name': string
-  'productflow_sso.token_model_limits': string
   'productflow_sso.token_group': string
   'productflow_sso.ticket_ttl_seconds': number
   'productflow_sso.session_ttl_seconds': number
+  'productflow_sso.admin_session_ttl_seconds': number
   'productflow_sso.enabled': boolean
   'productflow_sso.last_test_result': string
   LogConsumeEnabled: boolean
