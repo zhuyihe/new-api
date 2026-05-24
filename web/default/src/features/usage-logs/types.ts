@@ -109,6 +109,13 @@ export interface LogOtherData {
     // Manage audit fields (type=3, admin only)
     admin_username?: string
     admin_id?: number | string
+    /**
+     * Manage diff produced by transactional batch updates
+     * (see backend buildOptionBatchAuditChanges). Sensitive values are
+     * already masked server-side as `***<sha8>`; the dialog only renders
+     * them verbatim.
+     */
+    changes?: Array<{ key: string; before: string; after: string }>
   }
   request_path?: string
   request_conversion?: string[]

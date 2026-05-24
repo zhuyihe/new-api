@@ -59,6 +59,8 @@ const defaultOperationsSettings: OperationsSettings = {
   'productflow_sso.token_group': '',
   'productflow_sso.ticket_ttl_seconds': 60,
   'productflow_sso.session_ttl_seconds': 1209600,
+  'productflow_sso.enabled': true,
+  'productflow_sso.last_test_result': '',
   LogConsumeEnabled: false,
   'performance_setting.disk_cache_enabled': false,
   'performance_setting.disk_cache_threshold_mb': 10,

@@ -68,6 +68,13 @@ func SetApiRouter(router *gin.Engine) {
 			productFlowSSORoute.POST("/verify", controller.VerifyProductFlowSSO)
 		}
 
+		productFlowSSOAdminRoute := apiRouter.Group("/productflow/sso")
+		productFlowSSOAdminRoute.Use(middleware.RootAuth())
+		{
+			productFlowSSOAdminRoute.GET("/status", controller.GetProductFlowSSOStatus)
+			productFlowSSOAdminRoute.POST("/test", controller.TestProductFlowSSOConnection)
+		}
+
 		userRoute := apiRouter.Group("/user")
 		{
 			userRoute.POST("/register", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.Register)
@@ -188,6 +195,7 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			optionRoute.GET("/", controller.GetOptions)
 			optionRoute.PUT("/", controller.UpdateOption)
+			optionRoute.PUT("/batch", controller.UpdateOptionsBatch)
 			optionRoute.POST("/payment_compliance", controller.ConfirmPaymentCompliance)
 			optionRoute.GET("/channel_affinity_cache", controller.GetChannelAffinityCacheStats)
 			optionRoute.DELETE("/channel_affinity_cache", controller.ClearChannelAffinityCache)

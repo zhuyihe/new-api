@@ -86,6 +86,7 @@ func InitOptionMap() {
 	common.OptionMap["productflow_sso.token_group"] = ""
 	common.OptionMap["productflow_sso.ticket_ttl_seconds"] = strconv.Itoa(productFlowDefaultTicketTTL)
 	common.OptionMap["productflow_sso.session_ttl_seconds"] = strconv.Itoa(productFlowDefaultSessionTTL)
+	common.OptionMap["productflow_sso.enabled"] = strconv.FormatBool(true)
 	common.OptionMap["PayAddress"] = ""
 	common.OptionMap["CustomCallbackAddress"] = ""
 	common.OptionMap["EpayId"] = ""

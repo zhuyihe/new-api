@@ -22,9 +22,17 @@ const (
 	productFlowOptionTokenGroup       = "productflow_sso.token_group"
 	productFlowOptionTicketTTL        = "productflow_sso.ticket_ttl_seconds"
 	productFlowOptionSessionTTL       = "productflow_sso.session_ttl_seconds"
+	productFlowOptionEnabled          = "productflow_sso.enabled"
 )
 
+// errSSODisabled is a sentinel returned by validateForStart when the
+// administrator has explicitly turned off the SSO bridge. The caller is
+// expected to distinguish this from a configuration error so that the
+// operator-facing 503 message stays unambiguous.
+var errSSODisabled = errors.New("ProductFlow SSO is disabled")
+
 type productFlowSSOConfig struct {
+	Enabled           bool
 	BaseURL           string
 	SharedSecret      string
 	TokenName         string
@@ -57,6 +65,7 @@ func getProductFlowSSOConfig() productFlowSSOConfig {
 		sessionTTL = productFlowDefaultSessionTTL
 	}
 	return productFlowSSOConfig{
+		Enabled: getProductFlowOptionBool(productFlowOptionEnabled, true),
 		BaseURL: getProductFlowOptionString(
 			productFlowOptionBaseURL,
 			"",
@@ -106,7 +115,44 @@ func getProductFlowOptionInt(optionKey string, fallback int) int {
 	return fallback
 }
 
+func getProductFlowOptionBool(optionKey string, fallback bool) bool {
+	common.OptionMapRWMutex.RLock()
+	value, ok := common.OptionMap[optionKey]
+	common.OptionMapRWMutex.RUnlock()
+	if !ok {
+		return fallback
+	}
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "1", "yes", "on":
+		return true
+	case "false", "0", "no", "off":
+		return false
+	default:
+		return fallback
+	}
+}
+
+// isProductFlowBaseURLValid mirrors validateForStart's URL parse so the status
+// endpoint and any other "would this configuration survive a real redirect?"
+// check can stay in sync. A saved-but-malformed base URL must not be reported
+// as `configured` (bug: stale dashboard kept showing "connected" after the
+// admin pasted a typo).
+func isProductFlowBaseURLValid(raw string) bool {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return false
+	}
+	parsed, err := url.ParseRequestURI(trimmed)
+	if err != nil {
+		return false
+	}
+	return parsed.Scheme != "" && parsed.Host != ""
+}
+
 func (cfg productFlowSSOConfig) validateForStart() error {
+	if !cfg.Enabled {
+		return errSSODisabled
+	}
 	if cfg.BaseURL == "" {
 		return errors.New("ProductFlow base URL is not configured")
 	}
@@ -129,6 +175,16 @@ func (cfg productFlowSSOConfig) validateForVerify() error {
 
 func WarnIfProductFlowSSOTicketFallbackIsRiskyOnStartup() {
 	cfg := getProductFlowSSOConfig()
+	if !cfg.Enabled {
+		// Surface a single INFO when the admin has explicitly disabled SSO but
+		// the rest of the config is still in place — operators benefit from
+		// knowing the toggle, not the misconfiguration, is the reason
+		// /api/productflow/sso/start returns 503.
+		if cfg.BaseURL != "" && cfg.SharedSecret != "" {
+			common.SysLog("ProductFlow SSO disabled (productflow_sso.enabled=false)")
+		}
+		return
+	}
 	if common.RedisEnabled {
 		return
 	}

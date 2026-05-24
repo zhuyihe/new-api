@@ -118,6 +118,7 @@ const OPERATIONS_SECTIONS = [
             settings['productflow_sso.ticket_ttl_seconds'],
           'productflow_sso.session_ttl_seconds':
             settings['productflow_sso.session_ttl_seconds'],
+          'productflow_sso.enabled': settings['productflow_sso.enabled'],
         }}
       />
     ),

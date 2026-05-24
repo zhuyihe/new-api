@@ -756,6 +756,57 @@ export function DetailsDialog(props: DetailsDialogProps) {
               />
             )}
 
+            {/* Manage diff (type=3, admin only): per-key before/after rendered
+             * verbatim because the backend already masked sensitive values to
+             * ***<sha8>. Kept as a table so multi-field batch saves are easy
+             * to scan, and each row uses monospace so the masked digests
+             * align visually. */}
+            {isManage &&
+              props.isAdmin &&
+              Array.isArray(adminInfo?.changes) &&
+              adminInfo.changes.length > 0 && (
+                <div className='space-y-1'>
+                  <div className='text-muted-foreground text-xs font-medium'>
+                    {t('Configuration changes')}
+                  </div>
+                  <div className='rounded-md border'>
+                    <table className='w-full text-xs'>
+                      <thead className='bg-muted/40 text-muted-foreground'>
+                        <tr>
+                          <th className='px-2 py-1 text-left font-medium'>
+                            {t('Key')}
+                          </th>
+                          <th className='px-2 py-1 text-left font-medium'>
+                            {t('Before')}
+                          </th>
+                          <th className='px-2 py-1 text-left font-medium'>
+                            {t('After')}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminInfo.changes.map((change, idx) => (
+                          <tr
+                            key={`${change.key}-${idx}`}
+                            className='border-t'
+                          >
+                            <td className='px-2 py-1 font-mono break-all'>
+                              {change.key}
+                            </td>
+                            <td className='px-2 py-1 font-mono break-all text-muted-foreground'>
+                              {change.before || '—'}
+                            </td>
+                            <td className='px-2 py-1 font-mono break-all'>
+                              {change.after || '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
             {/* Audio/WebSocket token breakdown */}
             {hasAudioTokens && other && (
               <DetailSection
