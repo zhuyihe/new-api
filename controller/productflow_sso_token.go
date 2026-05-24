@@ -116,8 +116,20 @@ func updateProductFlowToken(token *model.Token, cfg productFlowSSOConfig) (*mode
 	return token, nil
 }
 
-func buildProductFlowCallbackURL(baseURL string, ticket string) (string, error) {
+// buildProductFlowCallbackBaseURL resolves the canonical callback target used
+// by both the browser redirect and the status preview so the UI cannot drift
+// from the actual redirect semantics when the base URL contains extra path
+// segments.
+func buildProductFlowCallbackBaseURL(baseURL string) (*url.URL, error) {
 	callback, err := url.Parse(common.BuildURL(strings.TrimRight(baseURL, "/")+"/", "/auth/new-api/callback"))
+	if err != nil {
+		return nil, err
+	}
+	return callback, nil
+}
+
+func buildProductFlowCallbackURL(baseURL string, ticket string) (string, error) {
+	callback, err := buildProductFlowCallbackBaseURL(baseURL)
 	if err != nil {
 		return "", err
 	}

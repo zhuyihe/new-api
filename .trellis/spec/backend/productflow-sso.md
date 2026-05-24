@@ -18,11 +18,45 @@
   - Server-to-server endpoint.
   - Requires `Authorization: Bearer <PRODUCTFLOW_SSO_SECRET>`.
   - Body: `{"ticket":"<one-time-ticket>"}`.
+- `GET /api/productflow/sso/status`
+  - Admin endpoint guarded by `RootAuth()`.
+  - Returns `{ enabled, configured, redis_enabled, callback_url_preview, last_test_result }`.
+  - `callback_url_preview` must use the same URL-resolution semantics as the
+    browser redirect path (`redirectProductFlowUser` / `common.BuildURL`),
+    not string concatenation. Base URLs with extra path segments must still
+    preview the canonical `/auth/new-api/callback` target.
+  - `last_test_result` is the persisted probe outcome that the status card
+    renders across reloads.
+  - Used by the system settings status card; no caller-supplied parameters.
+- `POST /api/productflow/sso/test`
+  - Admin endpoint guarded by `RootAuth()`.
+  - Optional body `{ base_url?: string }`; the saved value is used when omitted.
+  - Probes `<base_url>/api/health/sso` with a 3s timeout and persists the
+    outcome to `productflow_sso.last_test_result` for the status endpoint to
+    return.
+- `PUT /api/option/batch`
+  - Admin endpoint guarded by `RootAuth()`.
+  - Body `{ updates: [{ key, value }, ...] }`. Each entry is validated
+    individually through `validateProductFlowOptionValue` before any DB writes.
+  - All updates and the corresponding `LogTypeManage` audit row commit
+    inside a single GORM transaction (`UpdateOptionsBatchAtomic`). Sensitive
+    keys (`*Secret`, `*Key`, `*Token`, `*api_key`) are masked as
+    `***<sha8>` in the audit `changes[]` payload.
+- `GET /api/health/sso` (ProductFlow side, public)
+  - Returns `{ ok, version, supports_sso }` so new-api's Test Connection
+    button can classify the bridge as connected / network_error /
+    application_error.
+  - Rate-limited via slowapi at 6 requests per minute per client IP to
+    deter scanning.
 
 ### 3. Contracts
 
 Database-backed option keys:
 
+- `productflow_sso.enabled`: optional, defaults to `true`. When `false`,
+  `GET /api/productflow/sso/start` returns `503` with `"ProductFlow SSO is
+  disabled"` and the startup probe logs a single `INFO` line so operators
+  can tell the toggle apart from a misconfiguration.
 - `productflow_sso.base_url`: required for SSO start, for example `https://image.aync.cc.cd`.
 - `productflow_sso.shared_secret`: required for verify.
 - `productflow_sso.token_name`: optional, defaults to `ProductFlow`.
@@ -30,6 +64,8 @@ Database-backed option keys:
 - `productflow_sso.token_group`: optional token group.
 - `productflow_sso.ticket_ttl_seconds`: optional, defaults to `60`.
 - `productflow_sso.session_ttl_seconds`: optional, defaults to `1209600`.
+- `productflow_sso.last_test_result`: managed by `POST /api/productflow/sso/test`;
+  not editable from the settings form.
 
 The ProductFlow SSO bridge must read these values from New API's option store (`common.OptionMap` backed by the options
 table). Environment variables are not a fallback for this bridge, so stale deployment env cannot silently change SSO
@@ -57,6 +93,8 @@ Security contract:
 
 ### 4. Validation & Error Matrix
 
+- Disabled (`productflow_sso.enabled=false`) on start -> `503` with body
+  `"ProductFlow SSO is disabled"`.
 - Missing ProductFlow base URL on start -> `503`.
 - Invalid ProductFlow base URL on start -> `503`.
 - Missing ProductFlow shared secret on start or verify -> `503`.
@@ -65,6 +103,16 @@ Security contract:
 - Missing or wrong verify secret -> `401`.
 - Invalid JSON verify body -> `400`.
 - Missing, expired, or already consumed ticket -> `401`.
+- Batch save with one invalid entry -> `400`; no DB writes occur and the
+  failing key is returned in `failed_keys`.
+- Batch save transaction failure -> `500` with a generic message; the raw
+  cause is logged via `common.SysError` (never returned to the client).
+- Test connection transport failure -> `200` with a `network_error`
+  category whose `message` is a fixed string (no raw exception text).
+- Status callback preview with a base URL path segment -> canonical callback
+  root, not a concatenated nested path.
+- Status endpoint must round-trip `last_test_result` from OptionMap so the UI
+  can show the latest test after reload.
 
 ### 5. Good/Base/Bad Cases
 
@@ -79,6 +127,15 @@ Security contract:
 - Start redirects unauthenticated browser sessions to sign-in with preserved redirect.
 - Start with a valid browser session creates or reuses the configured ProductFlow token.
 - Redirect URL does not contain `sk-` token material.
+- `productflow_sso.enabled=false` returns the disabled `503` body and
+  emits the disabled INFO when other settings are populated.
+- Batch endpoint commits all updates atomically and writes one
+  `LogTypeManage` row whose `Other.admin_info.changes[]` masks secrets.
+- Test endpoint classifies happy / network_error / application_error
+  responses correctly and persists `last_test_result` for the status
+  endpoint to surface.
+- ProductFlow `/api/health/sso` returns the documented schema and the
+  7th request from the same client in a minute is rate-limited (`429`).
 
 ### 7. Wrong vs Correct
 
@@ -104,6 +161,20 @@ c.Redirect(http.StatusFound, callbackURLWithTicket)
 ```go
 // Store the ticket without routing token material through value-logging helpers.
 common.RDB.Set(context.Background(), ticketKey, string(payload), ttl).Err()
+```
+
+#### Wrong
+
+```go
+// String concatenation drifts when the base URL has extra path segments.
+callbackPreview := strings.TrimRight(cfg.BaseURL, "/") + "/auth/new-api/callback"
+```
+
+#### Correct
+
+```go
+callbackURL, _ := buildProductFlowCallbackBaseURL(cfg.BaseURL)
+callbackPreview := callbackURL.String()
 ```
 
 ### 8. Deployment Modes
