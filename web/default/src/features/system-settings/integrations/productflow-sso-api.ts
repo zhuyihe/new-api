@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { AxiosRequestConfig } from 'axios'
 import i18next from 'i18next'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
@@ -66,6 +67,16 @@ export type ProductFlowSSOStatus = {
   last_test_result: ProductFlowSSOTestResult | null
 }
 
+type ExtendedApiConfig = AxiosRequestConfig & {
+  skipBusinessError?: boolean
+}
+
+type ChannelGroupsResponse = {
+  success: boolean
+  message?: string
+  data?: string[]
+}
+
 type StatusResponse = {
   success: boolean
   data: ProductFlowSSOStatus
@@ -105,6 +116,37 @@ export async function saveProductFlowSSOBatch(
 ): Promise<BatchResponse> {
   const res = await api.put<BatchResponse>('/api/option/batch', { updates })
   return res.data
+}
+
+function sortProductFlowGroups(groups: string[]): string[] {
+  return [...groups].sort((a, b) => {
+    if (a === 'default') return -1
+    if (b === 'default') return 1
+    return a.localeCompare(b)
+  })
+}
+
+export function useChannelGroups() {
+  return useQuery({
+    queryKey: ['channel-groups'],
+    queryFn: async (): Promise<string[]> => {
+      const res = await api.get<ChannelGroupsResponse>(
+        '/api/group/',
+        {
+          skipBusinessError: true,
+        } as ExtendedApiConfig
+      )
+      if (res.data?.success === false) {
+        throw new Error(res.data.message || 'Failed to load groups')
+      }
+      const raw = Array.isArray(res.data?.data) ? res.data.data : []
+      return sortProductFlowGroups(
+        raw.filter((group): group is string => typeof group === 'string')
+      )
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  })
 }
 
 export function useProductFlowSSOStatus() {

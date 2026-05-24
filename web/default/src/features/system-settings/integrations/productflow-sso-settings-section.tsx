@@ -45,9 +45,18 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { SettingsSection } from '../components/settings-section'
 import { useResetForm } from '../hooks/use-reset-form'
 import {
+  useChannelGroups,
   useSaveProductFlowSSOBatch,
   useTestProductFlowSSOConnection,
 } from './productflow-sso-api'
@@ -119,6 +128,29 @@ type NormalizedProductFlowSSOValues = {
 type BaseUrlAdvisoryLevel = 'ok' | 'warn-https' | 'warn-loopback' | 'warn-private'
 
 type SecretStrength = 'empty' | 'weak' | 'medium' | 'strong' | 'very-strong'
+
+const TOKEN_GROUP_CLEAR_VALUE = '__none__'
+const TOKEN_GROUP_CLEAR_FALLBACK = '__productflow_sso_clear__'
+
+function resolveTokenGroupClearValue(
+  groups: string[],
+  orphanCurrentValue: string | null
+): string {
+  const candidates = [TOKEN_GROUP_CLEAR_VALUE, TOKEN_GROUP_CLEAR_FALLBACK]
+  for (const candidate of candidates) {
+    if (!groups.includes(candidate) && candidate !== orphanCurrentValue) {
+      return candidate
+    }
+  }
+  let suffix = 0
+  while (true) {
+    const candidate = `__productflow_sso_clear_${suffix}__`
+    if (!groups.includes(candidate) && candidate !== orphanCurrentValue) {
+      return candidate
+    }
+    suffix += 1
+  }
+}
 
 // scoreSecretStrength returns a coarse strength bucket the form can render
 // as a 4-step meter. The thresholds intentionally favour length over
@@ -268,6 +300,7 @@ export function ProductFlowSSOSettingsSection({
   const { t } = useTranslation()
   const saveBatch = useSaveProductFlowSSOBatch()
   const testConnection = useTestProductFlowSSOConnection()
+  const groupsQuery = useChannelGroups()
   const [baseline, setBaseline] = useState<NormalizedProductFlowSSOValues>(() =>
     normalizeDefaults(defaultValues),
   )
@@ -505,22 +538,77 @@ export function ProductFlowSSOSettingsSection({
             <FormField
               control={form.control}
               name='productflow_sso.token_group'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('Token group')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder={t('image')}
-                      {...field}
-                      onChange={(event) => field.onChange(event.target.value)}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    {t('Optional New API group assigned to the token.')}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const groupsList = groupsQuery.data ?? []
+                const orphanCurrentValue =
+                  field.value && !groupsList.includes(field.value)
+                    ? field.value
+                    : null
+                const clearValue = resolveTokenGroupClearValue(
+                  groupsList,
+                  orphanCurrentValue
+                )
+
+                return (
+                  <FormItem>
+                    <FormLabel>{t('Token group')}</FormLabel>
+                    <FormControl>
+                      <Select
+                        value={field.value || clearValue}
+                        onValueChange={(value) =>
+                          field.onChange(
+                            value === clearValue ? '' : value ?? ''
+                          )
+                        }
+                        disabled={groupsQuery.isLoading}
+                      >
+                        <SelectTrigger className='w-full'>
+                          <SelectValue placeholder={t('Select a group')} />
+                        </SelectTrigger>
+                        <SelectContent alignItemWithTrigger={false}>
+                          <SelectGroup>
+                            <SelectItem value={clearValue}>
+                              {t('No token group')}
+                            </SelectItem>
+                            {orphanCurrentValue && (
+                              <SelectItem
+                                value={orphanCurrentValue}
+                                className='text-amber-700'
+                              >
+                                ⚠️ {orphanCurrentValue} (
+                                {t('not in current group list')})
+                              </SelectItem>
+                            )}
+                            {groupsList.map((name) => (
+                              <SelectItem key={name} value={name}>
+                                {name}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    {groupsQuery.isError && (
+                      <p className='text-xs text-destructive'>
+                        {t('Failed to load groups, please retry.')}
+                      </p>
+                    )}
+                    {!groupsQuery.isLoading &&
+                      !groupsQuery.isError &&
+                      groupsList.length === 0 && (
+                        <p className='text-xs text-muted-foreground'>
+                          {t(
+                            'No groups available. Create one in System Settings → Models → Group Ratio.'
+                          )}
+                        </p>
+                      )}
+                    <FormDescription>
+                      {t('Optional New API group assigned to the token.')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )
+              }}
             />
 
             <FormField

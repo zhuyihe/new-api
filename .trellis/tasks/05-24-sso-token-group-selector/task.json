@@ -1,0 +1,46 @@
+{
+  "id": "sso-token-group-selector",
+  "name": "sso-token-group-selector",
+  "title": "ProductFlow SSO Token Group Selector - Replace Manual Input with Dropdown",
+  "description": "Replace the manually-typed TokenGroup string input in the ProductFlow SSO admin configuration page with a single-select dropdown populated from the existing GET /api/group/ endpoint. Eliminates the typo-and-silent-failure class of misconfiguration where admins write a group name that does not exist in the GroupRatio map. Strictly scoped: no backend changes, no preview panel, no orphan-group diagnostics - all rejected during the 2026-05-24 grill-me session in favor of strict job-boundary discipline. Post-r1 review: adds __none__ sentinel for clearing, stable client-side sort, isError state handling, and 4 new zh i18n keys.",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "name",
+  "assignee": "name",
+  "createdAt": "2026-05-24",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "productflow-sso",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "productflow-sso",
+  "relatedFiles": [
+    "web/default/src/features/system-settings/integrations/productflow-sso-api.ts",
+    "web/default/src/features/system-settings/integrations/productflow-sso-settings-section.tsx",
+    "web/default/src/i18n/locales/zh.json"
+  ],
+  "notes": "Scope minimized after grill-me + r1 review. Decision matrix records 14 explicit rulings (9 from grill, 5 from r1 review). Backlog items (orphan-group health check, ProductFlow model selector, preview panel, group-deletion cascade) are documented but explicitly OUT of scope.",
+  "meta": {
+    "design_session": "2026-05-24 grill-me",
+    "review_round": "r1",
+    "decision_matrix_count": 14,
+    "cross_repo": false,
+    "scope_tier": "A",
+    "estimated_days": 0.5,
+    "file_count": 3,
+    "backlog_items": [
+      "orphan-group-health-check",
+      "productflow-settings-model-selector",
+      "productflow-multi-group-model-mapping",
+      "sso-token-group-preview-panel",
+      "group-deletion-cascade-check",
+      "newapi-default-language-policy"
+    ]
+  }
+}
