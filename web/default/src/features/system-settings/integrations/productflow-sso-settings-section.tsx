@@ -351,7 +351,10 @@ export function ProductFlowSSOSettingsSection({
     form.watch('productflow_sso.image_model') ?? ''
   ).trim()
   const imageModelsQuery = useProductFlowSSOImageModels(tokenGroupDraft)
-  const imageModelOptions = imageModelsQuery.data ?? []
+  const imageModelOptions = useMemo(
+    () => imageModelsQuery.data ?? [],
+    [imageModelsQuery.data]
+  )
 
   useEffect(() => {
     if (!tokenGroupDraft) {
@@ -391,7 +394,7 @@ export function ProductFlowSSOSettingsSection({
       return t('No image models available for this token group.')
     }
     if (!imageModelDraft) {
-      return t('Select an image model')
+      return ''
     }
     if (!imageModelOptions.includes(imageModelDraft)) {
       return t('Selected image model is not available for this token group.')
@@ -743,7 +746,7 @@ export function ProductFlowSSOSettingsSection({
                     )}
                     <FormDescription>
                       {t(
-                        'New API model Atelier will use for hosted SSO image generation.'
+                        'Optional default shown first in Atelier generation settings. Users can choose any available model from this token group.'
                       )}
                     </FormDescription>
                     <FormMessage />

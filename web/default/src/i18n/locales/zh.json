@@ -3099,6 +3099,7 @@
     "No image models available for this token group.": "当前 token 分组没有可用生图模型。",
     "Selected image model is not available for this token group.": "所选生图模型不属于当前 token 分组。",
     "New API model Atelier will use for hosted SSO image generation.": "Atelier 托管 SSO 生图时使用的 New API 模型。",
+    "Optional default shown first in Atelier generation settings. Users can choose any available model from this token group.": "可选默认模型，会在 Atelier 生成设置中优先显示。用户可从当前 token 分组的可用模型中自行选择。",
     "not available for current token group": "不属于当前 token 分组",
     "Public ProductFlow address used for the callback.": "Atelier 的公网地址，用于 SSO 回调。",
     "Public Atelier address used for the callback.": "Atelier 的公网地址，用于 SSO 回调。",

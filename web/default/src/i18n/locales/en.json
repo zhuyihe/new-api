@@ -3099,6 +3099,7 @@
     "No image models available for this token group.": "No image models available for this token group.",
     "Selected image model is not available for this token group.": "Selected image model is not available for this token group.",
     "New API model Atelier will use for hosted SSO image generation.": "New API model Atelier will use for hosted SSO image generation.",
+    "Optional default shown first in Atelier generation settings. Users can choose any available model from this token group.": "Optional default shown first in Atelier generation settings. Users can choose any available model from this token group.",
     "not available for current token group": "not available for current token group",
     "Public ProductFlow address used for the callback.": "Public Atelier address used for the callback.",
     "Public Atelier address used for the callback.": "Public Atelier address used for the callback.",

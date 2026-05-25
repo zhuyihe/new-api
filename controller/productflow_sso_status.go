@@ -111,10 +111,7 @@ func productFlowSSOImageModelConfigurationIssues(cfg productFlowSSOConfig) []str
 		return []string{"Selected token group has no enabled image-generation models."}
 	}
 	if cfg.ImageModel == "" {
-		if len(models) == 1 {
-			return nil
-		}
-		return []string{"Select an Atelier image model."}
+		return nil
 	}
 	for _, modelName := range models {
 		if modelName == cfg.ImageModel {

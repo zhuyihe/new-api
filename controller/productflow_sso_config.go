@@ -247,10 +247,7 @@ func (cfg productFlowSSOConfig) validateImageModel() error {
 		return fmt.Errorf("Atelier token group %q has no enabled image-generation models", cfg.TokenGroup)
 	}
 	if strings.TrimSpace(cfg.ImageModel) == "" {
-		if len(models) == 1 {
-			return nil
-		}
-		return fmt.Errorf("Atelier image model is required for token group %q", cfg.TokenGroup)
+		return nil
 	}
 	for _, modelName := range models {
 		if modelName == cfg.ImageModel {

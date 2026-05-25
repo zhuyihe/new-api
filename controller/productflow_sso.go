@@ -22,17 +22,18 @@ type productFlowVerifyRequest struct {
 }
 
 type productFlowTicketClaims struct {
-	UserID           string `json:"user_id"`
-	Username         string `json:"username,omitempty"`
-	Email            string `json:"email,omitempty"`
-	Group            string `json:"group,omitempty"`
-	Role             string `json:"role,omitempty"`
-	Token            string `json:"token,omitempty"`
-	TokenID          string `json:"token_id,omitempty"`
-	TokenName        string `json:"token_name,omitempty"`
-	TokenGroup       string `json:"token_group,omitempty"`
-	ImageModel       string `json:"image_model,omitempty"`
-	ExpiresInSeconds int    `json:"expires_in,omitempty"`
+	UserID           string   `json:"user_id"`
+	Username         string   `json:"username,omitempty"`
+	Email            string   `json:"email,omitempty"`
+	Group            string   `json:"group,omitempty"`
+	Role             string   `json:"role,omitempty"`
+	Token            string   `json:"token,omitempty"`
+	TokenID          string   `json:"token_id,omitempty"`
+	TokenName        string   `json:"token_name,omitempty"`
+	TokenGroup       string   `json:"token_group,omitempty"`
+	ImageModel       string   `json:"image_model,omitempty"`
+	ImageModels      []string `json:"image_models,omitempty"`
+	ExpiresInSeconds int      `json:"expires_in,omitempty"`
 }
 
 const productFlowSSOStartUnavailableTemplate = `<!doctype html>
@@ -259,8 +260,27 @@ func newProductFlowTicketClaims(user *model.User, token *model.Token, cfg produc
 		TokenName:        token.Name,
 		TokenGroup:       token.Group,
 		ImageModel:       cfg.ImageModel,
+		ImageModels:      productFlowImageModelsForClaims(token.Group, cfg.ImageModel),
 		ExpiresInSeconds: productFlowSessionTTLForRole(user.Role, cfg),
 	}
+}
+
+func productFlowImageModelsForClaims(group string, selectedModel string) []string {
+	models, err := model.GetGroupEnabledImageModels(group)
+	if err != nil {
+		models = nil
+	}
+	selectedModel = strings.TrimSpace(selectedModel)
+	if selectedModel == "" {
+		return models
+	}
+	ordered := []string{selectedModel}
+	for _, modelName := range models {
+		if modelName != selectedModel {
+			ordered = append(ordered, modelName)
+		}
+	}
+	return ordered
 }
 
 func productFlowSessionTTLForRole(role int, cfg productFlowSSOConfig) int {

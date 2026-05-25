@@ -340,9 +340,41 @@ func TestProductFlowStartCreatesTokenAndRedirectsWithOneTimeTicket(t *testing.T)
 	require.Equal(t, "Atelier", response.Data.TokenName)
 	require.Equal(t, "image", response.Data.TokenGroup)
 	require.Equal(t, "gpt-image-2", response.Data.ImageModel)
+	require.Equal(t, []string{"gpt-image-2"}, response.Data.ImageModels)
 	require.Equal(t, "sk-"+token.Key, response.Data.Token)
 	require.NotEmpty(t, response.Data.TokenID)
 	require.Equal(t, 3600, response.Data.ExpiresInSeconds)
+}
+
+func TestProductFlowStartIncludesAllEnabledImageModelsForTokenGroup(t *testing.T) {
+	db := prepareProductFlowSSOTest(t)
+	seedProductFlowImageModel(t, db, "image", "gpt-image-3")
+	router := productFlowSSORouter()
+	user := seedProductFlowUser(t, db)
+	cookies := loginProductFlowSession(t, router, user)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/productflow/sso/start", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusFound, recorder.Code)
+	ticket := strings.TrimPrefix(
+		recorder.Header().Get("Location"),
+		"https://image.example.com/auth/new-api/callback?ticket=",
+	)
+	verify := httptest.NewRecorder()
+	verifyReq := httptest.NewRequest(http.MethodPost, "/api/productflow/sso/verify", bytes.NewBufferString(`{"ticket":"`+ticket+`"}`))
+	verifyReq.Header.Set("Content-Type", "application/json")
+	verifyReq.Header.Set("Authorization", "Bearer test-secret")
+	router.ServeHTTP(verify, verifyReq)
+
+	require.Equal(t, http.StatusOK, verify.Code)
+	response := decodeProductFlowResponse(t, verify)
+	require.Equal(t, "gpt-image-2", response.Data.ImageModel)
+	require.Equal(t, []string{"gpt-image-2", "gpt-image-3"}, response.Data.ImageModels)
 }
 
 func TestProductFlowStartDefaultsSingleImageModelForLegacyConfig(t *testing.T) {
@@ -504,6 +536,19 @@ func TestProductFlowSSOConfigRejectsStaleImageModelForTokenGroup(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, productFlowOptionImageModel, failingKey)
 	require.Contains(t, err.Error(), "is not enabled")
+}
+
+func TestProductFlowSSOConfigAllowsBlankImageModelForUserSelection(t *testing.T) {
+	db := prepareProductFlowSSOTest(t)
+	seedProductFlowImageModel(t, db, "image", "gpt-image-3")
+
+	_, err, failingKey := normalizeBatchOptionUpdates([]OptionUpdateRequest{
+		{Key: productFlowOptionTokenGroup, Value: "image"},
+		{Key: productFlowOptionImageModel, Value: ""},
+	})
+
+	require.NoError(t, err)
+	require.Empty(t, failingKey)
 }
 
 func TestProductFlowSSOConfigRejectsTokenGroupWithoutImageModels(t *testing.T) {
