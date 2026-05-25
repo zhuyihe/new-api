@@ -22,11 +22,15 @@
   - Body: `{"ticket":"<one-time-ticket>"}`.
 - `GET /api/productflow/sso/status`
   - Admin endpoint guarded by `RootAuth()`.
-  - Returns `{ enabled, configured, redis_enabled, callback_url_preview, last_test_result }`.
+  - Returns `{ enabled, configured, redis_enabled, callback_url_preview, configuration_message, configuration_issues, last_test_result }`.
   - `callback_url_preview` must use the same URL-resolution semantics as the
     browser redirect path (`redirectProductFlowUser` / `common.BuildURL`),
     not string concatenation. Base URLs with extra path segments must still
     preview the canonical `/auth/new-api/callback` target.
+  - `configuration_message` and `configuration_issues` are safe,
+    admin-actionable summaries of missing/invalid SSO settings. They must not
+    include secret values, token material, relay request bodies, prompts, or
+    stack traces.
   - `last_test_result` is the persisted probe outcome that the status card
     renders across reloads.
   - Used by the system settings status card; no caller-supplied parameters.
@@ -106,12 +110,19 @@ Security contract:
 
 ### 4. Validation & Error Matrix
 
-- Disabled (`productflow_sso.enabled=false`) on start -> `503` with body
-  `"Atelier SSO is disabled"`.
-- Missing Atelier base URL on start -> `503`.
-- Invalid Atelier base URL on start -> `503`.
-- Missing Atelier shared secret on start or verify -> `503`.
 - No valid browser session on start -> `302` to `/sign-in?redirect=%2Fapi%2Fproductflow%2Fsso%2Fstart`.
+- Start validates the browser session before configuration so public requests
+  cannot probe whether SSO is disabled or misconfigured.
+- Disabled (`productflow_sso.enabled=false`) on start -> `503` with
+  `"Atelier SSO is disabled"` for JSON clients and a browser-friendly HTML
+  page for HTML clients.
+- Missing Atelier base URL on start -> `503`; browser clients receive a
+  friendly HTML page instead of raw JSON.
+- Invalid Atelier base URL on start -> `503`; browser clients receive a
+  friendly HTML page instead of raw JSON.
+- Missing Atelier shared secret on start -> `503`; browser clients receive a
+  friendly HTML page instead of raw JSON.
+- Missing Atelier shared secret on verify -> `503`.
 - Disabled user on start -> `403`.
 - Missing or wrong verify secret -> `401`.
 - Invalid JSON verify body -> `400`.
@@ -131,6 +142,8 @@ Security contract:
   root, not a concatenated nested path.
 - Status endpoint must round-trip `last_test_result` from OptionMap so the UI
   can show the latest test after reload.
+- Status endpoint must report safe `configuration_issues` so the settings UI
+  can tell the admin exactly which SSO field needs attention.
 
 ### 5. Good/Base/Bad Cases
 
@@ -143,6 +156,10 @@ Security contract:
 - Secret validation rejects missing/wrong bearer secret.
 - Stored ticket verifies once and fails on the second attempt.
 - Start redirects unauthenticated browser sessions to sign-in with preserved redirect.
+- Start redirects unauthenticated browser sessions before SSO configuration
+  validation, even when the saved config is broken.
+- Start returns a browser-friendly HTML error page for authenticated browser
+  users when SSO configuration blocks the redirect.
 - Start with a valid browser session creates or reuses the configured Atelier token.
 - Verify response includes `token_group` and `image_model` when configured, without overloading the existing `group`
   field.
@@ -155,6 +172,9 @@ Security contract:
 - Test endpoint classifies happy / network_error / application_error
   responses correctly and persists `last_test_result` for the status
   endpoint to surface.
+- Status endpoint reports safe configuration issues for missing base URL,
+  missing shared secret, unavailable token group image models, and stale image
+  model selections.
 - Admin/root role tickets use the admin TTL while ordinary user tickets
   keep the normal session TTL.
 - ProductFlow `/api/health/sso` returns the documented schema and the

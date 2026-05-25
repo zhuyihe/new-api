@@ -127,6 +127,11 @@ The existing `group` claim remains the user's New API user group. Do not overloa
 - If New API returns quota/model-disabled/group-missing errors, Atelier should show a safe, actionable message and not
   leak tokens, raw relay URLs, upstream request bodies, prompts, or stack traces.
 - The detailed relay classification remains a follow-up unless it is needed to make this task testable.
+- New API's browser SSO start endpoint must not render raw JSON for configuration errors. Unauthenticated users should
+  still be redirected to sign-in first; authenticated browser users should see a compact human-readable error page, and
+  root admins should get a link to `/system-settings/operations/atelier-sso`.
+- The New API Atelier SSO status endpoint should return safe `configuration_message` / `configuration_issues` fields so
+  the settings page can show exactly which saved field needs attention without exposing secret material.
 
 ## Out of Scope
 
@@ -147,4 +152,3 @@ The existing `group` claim remains the user's New API user group. Do not overloa
 - [ ] SSO verify payload includes `token_group` and `image_model`.
 - [ ] Atelier image generation sends the SSO-provided `image_model` to the relay.
 - [ ] A regression test proves a stale local provider binding model is ignored when an SSO image model is present.
-

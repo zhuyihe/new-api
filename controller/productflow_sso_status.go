@@ -20,8 +20,10 @@ package controller
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/gin-gonic/gin"
 )
 
@@ -32,11 +34,13 @@ const productFlowOptionLastTestResult = "productflow_sso.last_test_result"
 // into a single shape so the front-end status card can render without
 // chaining additional requests.
 type ProductFlowSSOStatusResponse struct {
-	Enabled            bool                   `json:"enabled"`
-	Configured         bool                   `json:"configured"`
-	RedisEnabled       bool                   `json:"redis_enabled"`
-	CallbackURLPreview string                 `json:"callback_url_preview"`
-	LastTestResult     *productFlowTestResult `json:"last_test_result"`
+	Enabled              bool                   `json:"enabled"`
+	Configured           bool                   `json:"configured"`
+	RedisEnabled         bool                   `json:"redis_enabled"`
+	CallbackURLPreview   string                 `json:"callback_url_preview"`
+	ConfigurationMessage string                 `json:"configuration_message,omitempty"`
+	ConfigurationIssues  []string               `json:"configuration_issues,omitempty"`
+	LastTestResult       *productFlowTestResult `json:"last_test_result"`
 }
 
 // GetProductFlowSSOStatus returns the current SSO bridge status. Configured
@@ -47,12 +51,8 @@ type ProductFlowSSOStatusResponse struct {
 func GetProductFlowSSOStatus(c *gin.Context) {
 	cfg := getProductFlowSSOConfig()
 	baseURLValid := isProductFlowBaseURLValid(cfg.BaseURL)
-	configured := false
-	if baseURLValid && cfg.SharedSecret != "" {
-		cfgForValidation := cfg
-		cfgForValidation.Enabled = true
-		configured = cfgForValidation.validateForStart() == nil
-	}
+	issues := productFlowSSOConfigurationIssues(cfg)
+	configured := len(issues) == 0
 	var callbackPreview string
 	if baseURLValid {
 		if callbackURL, err := buildProductFlowCallbackBaseURL(cfg.BaseURL); err == nil {
@@ -62,13 +62,66 @@ func GetProductFlowSSOStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": ProductFlowSSOStatusResponse{
-			Enabled:            cfg.Enabled,
-			Configured:         configured,
-			RedisEnabled:       common.RedisEnabled,
-			CallbackURLPreview: callbackPreview,
-			LastTestResult:     loadProductFlowLastTestResult(),
+			Enabled:              cfg.Enabled,
+			Configured:           configured,
+			RedisEnabled:         common.RedisEnabled,
+			CallbackURLPreview:   callbackPreview,
+			ConfigurationMessage: productFlowSSOConfigurationMessage(issues),
+			ConfigurationIssues:  issues,
+			LastTestResult:       loadProductFlowLastTestResult(),
 		},
 	})
+}
+
+func productFlowSSOConfigurationMessage(issues []string) string {
+	if len(issues) == 0 {
+		return ""
+	}
+	if len(issues) == 1 {
+		return issues[0]
+	}
+	return "Multiple Atelier SSO settings need attention."
+}
+
+func productFlowSSOConfigurationIssues(cfg productFlowSSOConfig) []string {
+	var issues []string
+	if cfg.BaseURL == "" {
+		issues = append(issues, "Atelier base URL is missing.")
+	} else if _, err := url.ParseRequestURI(cfg.BaseURL); err != nil {
+		issues = append(issues, "Atelier base URL is invalid.")
+	} else if !isProductFlowBaseURLValid(cfg.BaseURL) {
+		issues = append(issues, "Atelier base URL must be an absolute URL.")
+	}
+	if cfg.SharedSecret == "" {
+		issues = append(issues, "SSO shared secret is missing.")
+	}
+	issues = append(issues, productFlowSSOImageModelConfigurationIssues(cfg)...)
+	return issues
+}
+
+func productFlowSSOImageModelConfigurationIssues(cfg productFlowSSOConfig) []string {
+	if cfg.TokenGroup == "" {
+		return nil
+	}
+	models, err := model.GetGroupEnabledImageModels(cfg.TokenGroup)
+	if err != nil {
+		return []string{"Unable to load image models for the selected token group."}
+	}
+	if len(models) == 0 {
+		return []string{"Selected token group has no enabled image-generation models."}
+	}
+	if cfg.ImageModel == "" {
+		if len(models) == 1 {
+			return nil
+		}
+		return []string{"Select an Atelier image model."}
+	}
+	for _, modelName := range models {
+		if modelName == cfg.ImageModel {
+			return nil
+		}
+	}
+	return []string{"Selected Atelier image model is not enabled for this token group."}
 }
 
 // loadProductFlowLastTestResult reads the persisted last test outcome from

@@ -43,3 +43,10 @@
 - [ ] Atelier backend ruff + targeted tests.
 - [ ] Manual staging check: select `GPT-Image-2` + `gpt-image-2`, enter Atelier image chat, generate one image.
 
+## Phase 6 - SSO Start/Status UX Hardening
+
+- [ ] Ensure unauthenticated `/api/productflow/sso/start` requests redirect to sign-in before config validation.
+- [ ] Return a browser-friendly HTML error page for authenticated browser users when saved SSO config blocks start.
+- [ ] Keep JSON error responses for JSON clients.
+- [ ] Add safe `configuration_message` / `configuration_issues` fields to the status endpoint.
+- [ ] Render the status issues in the New API Atelier SSO settings card.

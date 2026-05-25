@@ -77,3 +77,56 @@ func TestProductFlowStatusUsesCanonicalCallbackPreviewAndLastResult(t *testing.T
 	require.Equal(t, "draft", response.Data.LastTestResult.TestedAgainst)
 	require.Equal(t, "Atelier 1.2.3", response.Data.LastTestResult.Message)
 }
+
+func TestProductFlowStatusReportsConfigurationIssues(t *testing.T) {
+	prepareProductFlowSSOTest(t)
+
+	require.NoError(t, model.UpdateOption(productFlowOptionBaseURL, ""))
+	require.NoError(t, model.UpdateOption(productFlowOptionSharedSecret, ""))
+	require.NoError(t, model.UpdateOption(productFlowOptionTokenGroup, "image"))
+	require.NoError(t, model.UpdateOption(productFlowOptionImageModel, "gpt-image-1"))
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/productflow/sso/status", nil)
+
+	GetProductFlowSSOStatus(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+
+	var response struct {
+		Success bool                         `json:"success"`
+		Data    ProductFlowSSOStatusResponse `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.True(t, response.Success)
+	require.False(t, response.Data.Configured)
+	require.Equal(t, "Multiple Atelier SSO settings need attention.", response.Data.ConfigurationMessage)
+	require.Contains(t, response.Data.ConfigurationIssues, "Atelier base URL is missing.")
+	require.Contains(t, response.Data.ConfigurationIssues, "SSO shared secret is missing.")
+	require.Contains(t, response.Data.ConfigurationIssues, "Selected Atelier image model is not enabled for this token group.")
+}
+
+func TestProductFlowStatusAllowsLegacySingleImageModelDefault(t *testing.T) {
+	prepareProductFlowSSOTest(t)
+
+	require.NoError(t, model.UpdateOption(productFlowOptionImageModel, ""))
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/productflow/sso/status", nil)
+
+	GetProductFlowSSOStatus(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+
+	var response struct {
+		Success bool                         `json:"success"`
+		Data    ProductFlowSSOStatusResponse `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.True(t, response.Success)
+	require.True(t, response.Data.Configured)
+	require.Empty(t, response.Data.ConfigurationMessage)
+	require.Empty(t, response.Data.ConfigurationIssues)
+}

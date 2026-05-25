@@ -64,6 +64,8 @@ export type ProductFlowSSOStatus = {
   configured: boolean
   redis_enabled: boolean
   callback_url_preview: string
+  configuration_message?: string
+  configuration_issues?: string[]
   last_test_result: ProductFlowSSOTestResult | null
 }
 

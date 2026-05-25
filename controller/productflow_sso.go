@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"html"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -34,25 +35,39 @@ type productFlowTicketClaims struct {
 	ExpiresInSeconds int    `json:"expires_in,omitempty"`
 }
 
-func StartProductFlowSSO(c *gin.Context) {
-	cfg := getProductFlowSSOConfig()
-	if err := cfg.validateForStart(); err != nil {
-		// Distinguish operator-disabled from misconfigured so the 503 body
-		// stays unambiguous; both still map to ServiceUnavailable per the
-		// SSO start contract.
-		if errors.Is(err, errSSODisabled) {
-			model.RecordLog(0, model.LogTypeSystem,
-				"productflow_sso start failed: reason=disabled")
-			c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "Atelier SSO is disabled"})
-			return
-		}
-		model.RecordLog(0, model.LogTypeSystem, fmt.Sprintf(
-			"productflow_sso start failed: reason=%s", err.Error(),
-		))
-		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": err.Error()})
-		return
-	}
+const productFlowSSOStartUnavailableTemplate = `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>%s</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f9; color: #18181b; }
+    main { width: min(92vw, 520px); box-sizing: border-box; border: 1px solid #e4e4e7; border-radius: 8px; background: #fff; padding: 28px; box-shadow: 0 18px 50px rgba(15, 23, 42, .08); }
+    h1 { margin: 0 0 10px; font-size: 22px; line-height: 1.25; }
+    p { margin: 0; color: #52525b; line-height: 1.65; }
+    .detail { margin-top: 16px; border: 1px solid #fde68a; border-radius: 6px; background: #fffbeb; color: #92400e; padding: 10px 12px; word-break: break-word; }
+    .button { display: inline-flex; margin-top: 18px; align-items: center; justify-content: center; min-height: 38px; border-radius: 6px; background: #18181b; color: #fff; padding: 0 14px; text-decoration: none; font-size: 14px; font-weight: 600; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #09090b; color: #fafafa; }
+      main { background: #18181b; border-color: #27272a; box-shadow: none; }
+      p { color: #d4d4d8; }
+      .detail { background: #2f2608; border-color: #854d0e; color: #fde68a; }
+      .button { background: #fafafa; color: #18181b; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>%s</h1>
+    <p>%s</p>
+    %s
+  </main>
+</body>
+</html>`
 
+func StartProductFlowSSO(c *gin.Context) {
 	userID, err := currentBrowserSessionUserID(c)
 	if err != nil {
 		if errors.Is(err, errProductFlowSSOForbidden) {
@@ -75,9 +90,74 @@ func StartProductFlowSSO(c *gin.Context) {
 		return
 	}
 
+	cfg := getProductFlowSSOConfig()
+	if err := cfg.validateForStart(); err != nil {
+		// Validate after browser auth so unauthenticated users are always sent
+		// through the normal sign-in flow and public requests cannot probe SSO
+		// operator configuration.
+		reason := err.Error()
+		if errors.Is(err, errSSODisabled) {
+			reason = "disabled"
+		}
+		model.RecordLog(user.Id, model.LogTypeSystem, fmt.Sprintf(
+			"productflow_sso start failed: reason=%s", reason,
+		))
+		respondProductFlowSSOStartUnavailable(c, user, err)
+		return
+	}
+
 	if err := redirectProductFlowUser(c, cfg, user); err != nil {
 		common.ApiError(c, err)
 	}
+}
+
+func respondProductFlowSSOStartUnavailable(c *gin.Context, user *model.User, err error) {
+	message := productFlowSSOStartUnavailableMessage(user, err)
+	if productFlowSSOWantsJSON(c) {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": message})
+		return
+	}
+	c.Data(http.StatusServiceUnavailable, "text/html; charset=utf-8",
+		[]byte(renderProductFlowSSOStartUnavailableHTML(user, err, message)))
+}
+
+func productFlowSSOWantsJSON(c *gin.Context) bool {
+	accept := strings.ToLower(c.GetHeader("Accept"))
+	return strings.Contains(accept, "application/json") && !strings.Contains(accept, "text/html")
+}
+
+func productFlowSSOStartUnavailableMessage(user *model.User, err error) string {
+	if errors.Is(err, errSSODisabled) {
+		return "Atelier SSO is disabled"
+	}
+	if user != nil && user.Role >= common.RoleRootUser {
+		return err.Error()
+	}
+	return "Atelier SSO is not ready. Please contact an administrator."
+}
+
+func renderProductFlowSSOStartUnavailableHTML(user *model.User, err error, message string) string {
+	title := "Atelier SSO 还没准备好"
+	intro := "当前无法打开 Atelier，请联系管理员检查 New API 的 Atelier SSO 配置。"
+	if errors.Is(err, errSSODisabled) {
+		title = "Atelier SSO 已停用"
+		intro = "当前无法打开 Atelier，请联系管理员重新启用 Atelier SSO。"
+	}
+
+	var adminAction string
+	if user != nil && user.Role >= common.RoleRootUser {
+		adminAction = fmt.Sprintf(
+			`<p class="detail">配置问题：%s</p><a class="button" href="/system-settings/operations/atelier-sso">打开 Atelier SSO 设置</a>`,
+			html.EscapeString(message),
+		)
+	}
+
+	return fmt.Sprintf(productFlowSSOStartUnavailableTemplate,
+		html.EscapeString(title),
+		html.EscapeString(title),
+		html.EscapeString(intro),
+		adminAction,
+	)
 }
 
 func VerifyProductFlowSSO(c *gin.Context) {

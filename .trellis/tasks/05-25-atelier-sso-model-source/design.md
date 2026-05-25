@@ -56,6 +56,22 @@ Extend ticket claims with:
 
 Do not change the existing `Group` field; it is the user's New API user group.
 
+SSO start UX:
+
+- Check the browser session before validating SSO configuration so public requests cannot infer whether Atelier SSO is
+  disabled or misconfigured.
+- Keep JSON responses for JSON clients, but return a compact HTML error page for browser clients when configuration
+  blocks the redirect.
+- Root admins may see the safe validation message and a link to `/system-settings/operations/atelier-sso`; ordinary
+  users see a generic "contact administrator" message.
+
+SSO status UX:
+
+- Extend the status response with `configuration_message` and `configuration_issues`.
+- Issues should be specific enough for the settings card to act on missing base URL, missing shared secret, empty image
+  model where selection is required, token groups with no image models, and stale selected image models.
+- Never include secret values, token material, prompts, relay bodies, or stack traces in those fields.
+
 ## New API Frontend
 
 Operations section registry:
@@ -103,4 +119,3 @@ read-only source text near provider config. A fuller settings redesign can happe
 - Existing bookmarks to `/system-settings/operations/productflow-sso` should continue working through alias/redirect.
 - Existing API clients using `/api/productflow/sso/*` continue working.
 - Option storage does not need migration because `productflow_sso.image_model` is a new optional key.
-

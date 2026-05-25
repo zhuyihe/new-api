@@ -43,6 +43,7 @@ func setupProductFlowSSOTestDB(t *testing.T) *gorm.DB {
 		&model.Channel{},
 		&model.Ability{},
 		&model.Model{},
+		&model.Log{},
 	))
 	model.DB = db
 	model.LOG_DB = db
@@ -193,6 +194,67 @@ func TestProductFlowStartRedirectsUnauthenticatedUsersToSignIn(t *testing.T) {
 
 	require.Equal(t, http.StatusFound, recorder.Code)
 	require.Equal(t, "/sign-in?redirect=%2Fapi%2Fproductflow%2Fsso%2Fstart", recorder.Header().Get("Location"))
+}
+
+func TestProductFlowStartRedirectsUnauthenticatedUsersBeforeConfigValidation(t *testing.T) {
+	prepareProductFlowSSOTest(t)
+	require.NoError(t, model.UpdateOption(productFlowOptionBaseURL, ""))
+	router := productFlowSSORouter()
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/productflow/sso/start", nil)
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusFound, recorder.Code)
+	require.Equal(t, "/sign-in?redirect=%2Fapi%2Fproductflow%2Fsso%2Fstart", recorder.Header().Get("Location"))
+	require.NotContains(t, recorder.Body.String(), "Atelier base URL")
+}
+
+func TestProductFlowStartShowsFriendlyHTMLForBrowserConfigErrors(t *testing.T) {
+	db := prepareProductFlowSSOTest(t)
+	require.NoError(t, model.UpdateOption(productFlowOptionBaseURL, ""))
+	router := productFlowSSORouter()
+	user := seedProductFlowUser(t, db)
+	user.Role = common.RoleRootUser
+	require.NoError(t, db.Save(&user).Error)
+	cookies := loginProductFlowSession(t, router, user)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/productflow/sso/start", nil)
+	request.Header.Set("Accept", "text/html")
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
+	require.Contains(t, recorder.Header().Get("Content-Type"), "text/html")
+	require.Contains(t, recorder.Body.String(), "Atelier SSO")
+	require.Contains(t, recorder.Body.String(), "/system-settings/operations/atelier-sso")
+	require.Contains(t, recorder.Body.String(), "Atelier base URL is not configured")
+	require.NotContains(t, recorder.Body.String(), `{"success":false`)
+}
+
+func TestProductFlowStartKeepsJSONForAPIConfigErrors(t *testing.T) {
+	db := prepareProductFlowSSOTest(t)
+	require.NoError(t, model.UpdateOption(productFlowOptionBaseURL, ""))
+	router := productFlowSSORouter()
+	user := seedProductFlowUser(t, db)
+	cookies := loginProductFlowSession(t, router, user)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/productflow/sso/start", nil)
+	request.Header.Set("Accept", "application/json")
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
+	require.Contains(t, recorder.Header().Get("Content-Type"), "application/json")
+	response := decodeProductFlowResponse(t, recorder)
+	require.False(t, response.Success)
+	require.Equal(t, "Atelier SSO is not ready. Please contact an administrator.", response.Message)
 }
 
 func TestProductFlowConfigIgnoresEnvDefaults(t *testing.T) {

@@ -185,6 +185,10 @@ export function ProductFlowSSOStatusCard({
     baseUrlDraft
   )
   const badge = statusBadgeProps(statusKind, t)
+  const configurationIssues = status?.configuration_issues ?? []
+  const configurationMessage =
+    status?.configuration_message ||
+    (configurationIssues.length > 0 ? configurationIssues[0] : '')
   const redisWarning =
     effectiveConfigured && status?.redis_enabled === false && formEnabled
 
@@ -310,6 +314,26 @@ export function ProductFlowSSOStatusCard({
             <span className='text-muted-foreground ml-1'>
               ({lastTestResult.latency_ms} ms)
             </span>
+          </div>
+        </div>
+      )}
+
+      {(statusKind === 'configuration_error' ||
+        statusKind === 'not_configured') &&
+        configurationMessage && (
+        <div className='flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900'>
+          <AlertTriangle className='mt-0.5 size-4 shrink-0' />
+          <div className='space-y-1 text-sm'>
+            <div className='font-medium'>{t('Action needed')}</div>
+            {configurationIssues.length > 1 ? (
+              <ul className='list-disc space-y-1 pl-4'>
+                {configurationIssues.map((issue) => (
+                  <li key={issue}>{t(issue)}</li>
+                ))}
+              </ul>
+            ) : (
+              <div>{t(configurationMessage)}</div>
+            )}
           </div>
         </div>
       )}
