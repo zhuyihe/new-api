@@ -75,7 +75,7 @@ func getProductFlowSSOConfig() productFlowSSOConfig {
 	if adminSessionTTL <= 0 {
 		adminSessionTTL = productFlowDefaultAdminSessionTTL
 	}
-	return productFlowSSOConfig{
+	cfg := productFlowSSOConfig{
 		Enabled: getProductFlowOptionBool(productFlowOptionEnabled, true),
 		BaseURL: getProductFlowOptionString(
 			productFlowOptionBaseURL,
@@ -98,6 +98,8 @@ func getProductFlowSSOConfig() productFlowSSOConfig {
 		SessionTTLSeconds:      sessionTTL,
 		AdminSessionTTLSeconds: adminSessionTTL,
 	}
+	cfg.applySingleImageModelDefault()
+	return cfg
 }
 
 func snapshotProductFlowSSOOptionValues() map[string]string {
@@ -245,6 +247,9 @@ func (cfg productFlowSSOConfig) validateImageModel() error {
 		return fmt.Errorf("Atelier token group %q has no enabled image-generation models", cfg.TokenGroup)
 	}
 	if strings.TrimSpace(cfg.ImageModel) == "" {
+		if len(models) == 1 {
+			return nil
+		}
 		return fmt.Errorf("Atelier image model is required for token group %q", cfg.TokenGroup)
 	}
 	for _, modelName := range models {
@@ -253,6 +258,20 @@ func (cfg productFlowSSOConfig) validateImageModel() error {
 		}
 	}
 	return fmt.Errorf("Atelier image model %q is not enabled for token group %q", cfg.ImageModel, cfg.TokenGroup)
+}
+
+func (cfg *productFlowSSOConfig) applySingleImageModelDefault() {
+	if cfg == nil || !cfg.Enabled {
+		return
+	}
+	if strings.TrimSpace(cfg.ImageModel) != "" || strings.TrimSpace(cfg.TokenGroup) == "" {
+		return
+	}
+	models, err := model.GetGroupEnabledImageModels(cfg.TokenGroup)
+	if err != nil || len(models) != 1 {
+		return
+	}
+	cfg.ImageModel = models[0]
 }
 
 func WarnIfProductFlowSSOTicketFallbackIsRiskyOnStartup() {

@@ -283,6 +283,36 @@ func TestProductFlowStartCreatesTokenAndRedirectsWithOneTimeTicket(t *testing.T)
 	require.Equal(t, 3600, response.Data.ExpiresInSeconds)
 }
 
+func TestProductFlowStartDefaultsSingleImageModelForLegacyConfig(t *testing.T) {
+	db := prepareProductFlowSSOTest(t)
+	require.NoError(t, model.UpdateOption(productFlowOptionImageModel, ""))
+	router := productFlowSSORouter()
+	user := seedProductFlowUser(t, db)
+	cookies := loginProductFlowSession(t, router, user)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/productflow/sso/start", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusFound, recorder.Code)
+	ticket := strings.TrimPrefix(
+		recorder.Header().Get("Location"),
+		"https://image.example.com/auth/new-api/callback?ticket=",
+	)
+	verify := httptest.NewRecorder()
+	verifyReq := httptest.NewRequest(http.MethodPost, "/api/productflow/sso/verify", bytes.NewBufferString(`{"ticket":"`+ticket+`"}`))
+	verifyReq.Header.Set("Content-Type", "application/json")
+	verifyReq.Header.Set("Authorization", "Bearer test-secret")
+	router.ServeHTTP(verify, verifyReq)
+
+	require.Equal(t, http.StatusOK, verify.Code)
+	response := decodeProductFlowResponse(t, verify)
+	require.Equal(t, "gpt-image-2", response.Data.ImageModel)
+}
+
 func TestProductFlowStartUsesAdminSessionTTLForAdminUsers(t *testing.T) {
 	db := prepareProductFlowSSOTest(t)
 	router := productFlowSSORouter()
