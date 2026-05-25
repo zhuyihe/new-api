@@ -409,7 +409,12 @@ export function ProductFlowSSOSettingsSection({
       changedKeys.map((key) => ({ key, value: normalized[key] }))
     )
     if (result.success) {
-      setBaseline(normalized)
+      const resetValues = {
+        ...normalized,
+        'productflow_sso.shared_secret': '',
+      }
+      setBaseline(resetValues)
+      form.reset(resetValues)
     }
   }
 
