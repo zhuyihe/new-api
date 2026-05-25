@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	productFlowDefaultTokenName       = "ProductFlow"
+	productFlowDefaultTokenName       = "Atelier"
 	productFlowDefaultTicketTTL       = 60
 	productFlowDefaultSessionTTL      = 14 * 24 * 60 * 60
 	productFlowDefaultAdminSessionTTL = 60 * 60

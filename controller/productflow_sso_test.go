@@ -68,7 +68,7 @@ func seedProductFlowSSODefaultOptions(t *testing.T) {
 	seedProductFlowSSOOptions(t, map[string]string{
 		productFlowOptionBaseURL:         "https://image.example.com",
 		productFlowOptionSharedSecret:    "test-secret",
-		productFlowOptionTokenName:       "ProductFlow",
+		productFlowOptionTokenName:       "Atelier",
 		productFlowOptionTokenGroup:      "image",
 		productFlowOptionTicketTTL:       "60",
 		productFlowOptionSessionTTL:      "3600",
@@ -173,7 +173,7 @@ func TestProductFlowConfigIgnoresEnvDefaults(t *testing.T) {
 	cfg := getProductFlowSSOConfig()
 	require.Empty(t, cfg.BaseURL)
 	require.Empty(t, cfg.SharedSecret)
-	require.Equal(t, "ProductFlow", cfg.TokenName)
+	require.Equal(t, "Atelier", cfg.TokenName)
 	require.Empty(t, cfg.TokenGroup)
 	require.Equal(t, productFlowDefaultTicketTTL, cfg.TicketTTLSeconds)
 	require.Equal(t, productFlowDefaultSessionTTL, cfg.SessionTTLSeconds)
@@ -217,7 +217,7 @@ func TestProductFlowStartCreatesTokenAndRedirectsWithOneTimeTicket(t *testing.T)
 	require.NotContains(t, redirectURL, "sk-")
 
 	var token model.Token
-	require.NoError(t, db.First(&token, "user_id = ? AND name = ?", user.Id, "ProductFlow").Error)
+	require.NoError(t, db.First(&token, "user_id = ? AND name = ?", user.Id, "Atelier").Error)
 	require.Equal(t, common.TokenStatusEnabled, token.Status)
 	require.True(t, token.UnlimitedQuota)
 	require.False(t, token.ModelLimitsEnabled)
@@ -239,7 +239,7 @@ func TestProductFlowStartCreatesTokenAndRedirectsWithOneTimeTicket(t *testing.T)
 	require.Equal(t, "alice@example.com", response.Data.Email)
 	require.Equal(t, "default", response.Data.Group)
 	require.Equal(t, "1", response.Data.Role)
-	require.Equal(t, "ProductFlow", response.Data.TokenName)
+	require.Equal(t, "Atelier", response.Data.TokenName)
 	require.Equal(t, "sk-"+token.Key, response.Data.Token)
 	require.NotEmpty(t, response.Data.TokenID)
 	require.Equal(t, 3600, response.Data.ExpiresInSeconds)
@@ -285,7 +285,7 @@ func TestProductFlowTokenIsReusedAndUpdatedFromConfig(t *testing.T) {
 	user := seedProductFlowUser(t, db)
 	existing := model.Token{
 		UserId:             user.Id,
-		Name:               "ProductFlow",
+		Name:               "Atelier",
 		Key:                "existing-key",
 		Status:             common.TokenStatusDisabled,
 		CreatedTime:        1,

@@ -80,7 +80,7 @@ func UpdateOptionsBatch(c *gin.Context) {
 		normalized,
 		adminID,
 		adminUsername,
-		"ProductFlow SSO config updated",
+		"Atelier SSO config updated",
 		buildOptionBatchAuditChanges,
 	)
 	if err != nil {

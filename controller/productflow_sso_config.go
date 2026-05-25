@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	productFlowDefaultTokenName       = "ProductFlow"
+	productFlowDefaultTokenName       = "Atelier"
 	productFlowDefaultTicketTTL       = 60
 	productFlowDefaultSessionTTL      = 14 * 24 * 60 * 60
 	productFlowDefaultAdminSessionTTL = 60 * 60
@@ -30,7 +30,7 @@ const (
 // administrator has explicitly turned off the SSO bridge. The caller is
 // expected to distinguish this from a configuration error so that the
 // operator-facing 503 message stays unambiguous.
-var errSSODisabled = errors.New("ProductFlow SSO is disabled")
+var errSSODisabled = errors.New("Atelier SSO is disabled")
 
 type productFlowSSOConfig struct {
 	Enabled                bool
@@ -159,21 +159,21 @@ func (cfg productFlowSSOConfig) validateForStart() error {
 		return errSSODisabled
 	}
 	if cfg.BaseURL == "" {
-		return errors.New("ProductFlow base URL is not configured")
+		return errors.New("Atelier base URL is not configured")
 	}
 	parsed, err := url.ParseRequestURI(cfg.BaseURL)
 	if err != nil {
-		return fmt.Errorf("ProductFlow base URL is invalid: %w", err)
+		return fmt.Errorf("Atelier base URL is invalid: %w", err)
 	}
 	if parsed.Scheme == "" || parsed.Host == "" {
-		return errors.New("ProductFlow base URL must be an absolute URL")
+		return errors.New("Atelier base URL must be an absolute URL")
 	}
 	return cfg.validateForVerify()
 }
 
 func (cfg productFlowSSOConfig) validateForVerify() error {
 	if cfg.SharedSecret == "" {
-		return errors.New("ProductFlow shared secret is not configured")
+		return errors.New("Atelier shared secret is not configured")
 	}
 	return nil
 }
@@ -186,7 +186,7 @@ func WarnIfProductFlowSSOTicketFallbackIsRiskyOnStartup() {
 		// knowing the toggle, not the misconfiguration, is the reason
 		// /api/productflow/sso/start returns 503.
 		if cfg.BaseURL != "" && cfg.SharedSecret != "" {
-			common.SysLog("ProductFlow SSO disabled (productflow_sso.enabled=false)")
+			common.SysLog("Atelier SSO disabled (productflow_sso.enabled=false)")
 		}
 		return
 	}

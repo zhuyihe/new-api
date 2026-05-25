@@ -20,9 +20,9 @@ import { useEffect, useMemo, useState } from 'react'
 import * as z from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { AlertTriangle, Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { AlertTriangle, Info } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   AlertDialog,
@@ -60,6 +60,10 @@ import {
   useSaveProductFlowSSOBatch,
   useTestProductFlowSSOConnection,
 } from './productflow-sso-api'
+import {
+  normalizeProductFlowSSOFormValues,
+  type NormalizedProductFlowSSOValues,
+} from './productflow-sso-form-values'
 import { ProductFlowSSOStatusCard } from './productflow-sso-status-card'
 import { removeTrailingSlash } from './utils'
 
@@ -114,18 +118,11 @@ type ProductFlowSSOSettingsSectionProps = {
   }
 }
 
-type NormalizedProductFlowSSOValues = {
-  'productflow_sso.enabled': string
-  'productflow_sso.base_url': string
-  'productflow_sso.shared_secret': string
-  'productflow_sso.token_name': string
-  'productflow_sso.token_group': string
-  'productflow_sso.ticket_ttl_seconds': string
-  'productflow_sso.session_ttl_seconds': string
-  'productflow_sso.admin_session_ttl_seconds': string
-}
-
-type BaseUrlAdvisoryLevel = 'ok' | 'warn-https' | 'warn-loopback' | 'warn-private'
+type BaseUrlAdvisoryLevel =
+  | 'ok'
+  | 'warn-https'
+  | 'warn-loopback'
+  | 'warn-private'
 
 type SecretStrength = 'empty' | 'weak' | 'medium' | 'strong' | 'very-strong'
 
@@ -229,16 +226,17 @@ function classifyBaseUrl(rawUrl: string): BaseUrlAdvisoryLevel {
 const buildFormDefaults = (
   defaults: ProductFlowSSOSettingsSectionProps['defaultValues']
 ): ProductFlowSSOFormValues => ({
-  'productflow_sso.enabled': String(defaults['productflow_sso.enabled'] ?? true),
+  'productflow_sso.enabled': String(
+    defaults['productflow_sso.enabled'] ?? true
+  ),
   'productflow_sso.base_url': removeTrailingSlash(
     defaults['productflow_sso.base_url'] ?? ''
   ),
   'productflow_sso.shared_secret':
     defaults['productflow_sso.shared_secret'] ?? '',
   'productflow_sso.token_name':
-    defaults['productflow_sso.token_name'] ?? 'ProductFlow',
-  'productflow_sso.token_group':
-    defaults['productflow_sso.token_group'] ?? '',
+    defaults['productflow_sso.token_name'] ?? 'Atelier',
+  'productflow_sso.token_group': defaults['productflow_sso.token_group'] ?? '',
   'productflow_sso.ticket_ttl_seconds': String(
     defaults['productflow_sso.ticket_ttl_seconds'] ?? 60
   ),
@@ -253,16 +251,17 @@ const buildFormDefaults = (
 const normalizeDefaults = (
   defaults: ProductFlowSSOSettingsSectionProps['defaultValues']
 ): NormalizedProductFlowSSOValues => ({
-  'productflow_sso.enabled': String(defaults['productflow_sso.enabled'] ?? true),
+  'productflow_sso.enabled': String(
+    defaults['productflow_sso.enabled'] ?? true
+  ),
   'productflow_sso.base_url': removeTrailingSlash(
     defaults['productflow_sso.base_url'] ?? ''
   ),
   'productflow_sso.shared_secret':
     defaults['productflow_sso.shared_secret'] ?? '',
   'productflow_sso.token_name':
-    defaults['productflow_sso.token_name'] ?? 'ProductFlow',
-  'productflow_sso.token_group':
-    defaults['productflow_sso.token_group'] ?? '',
+    defaults['productflow_sso.token_name'] ?? 'Atelier',
+  'productflow_sso.token_group': defaults['productflow_sso.token_group'] ?? '',
   'productflow_sso.ticket_ttl_seconds': String(
     defaults['productflow_sso.ticket_ttl_seconds'] ?? 60
   ).trim(),
@@ -274,26 +273,6 @@ const normalizeDefaults = (
   ).trim(),
 })
 
-const normalizeFormValues = (
-  values: ProductFlowSSOFormValues
-): NormalizedProductFlowSSOValues => ({
-  'productflow_sso.enabled': values['productflow_sso.enabled'],
-  'productflow_sso.base_url': removeTrailingSlash(
-    values['productflow_sso.base_url']
-  ),
-  'productflow_sso.shared_secret':
-    values['productflow_sso.shared_secret'].trim(),
-  'productflow_sso.token_name': values['productflow_sso.token_name'].trim(),
-  'productflow_sso.token_group':
-    values['productflow_sso.token_group'].trim(),
-  'productflow_sso.ticket_ttl_seconds':
-    values['productflow_sso.ticket_ttl_seconds'].trim(),
-  'productflow_sso.session_ttl_seconds':
-    values['productflow_sso.session_ttl_seconds'].trim(),
-  'productflow_sso.admin_session_ttl_seconds':
-    values['productflow_sso.admin_session_ttl_seconds'].trim(),
-})
-
 export function ProductFlowSSOSettingsSection({
   defaultValues,
 }: ProductFlowSSOSettingsSectionProps) {
@@ -302,7 +281,7 @@ export function ProductFlowSSOSettingsSection({
   const testConnection = useTestProductFlowSSOConnection()
   const groupsQuery = useChannelGroups()
   const [baseline, setBaseline] = useState<NormalizedProductFlowSSOValues>(() =>
-    normalizeDefaults(defaultValues),
+    normalizeDefaults(defaultValues)
   )
   const [secretConfirmOpen, setSecretConfirmOpen] = useState(false)
   const [pendingNormalized, setPendingNormalized] =
@@ -317,7 +296,11 @@ export function ProductFlowSSOSettingsSection({
   )
 
   const schema = createProductFlowSSOSchema(t)
-  const form = useForm<ProductFlowSSOFormInput, unknown, ProductFlowSSOFormValues>({
+  const form = useForm<
+    ProductFlowSSOFormInput,
+    unknown,
+    ProductFlowSSOFormValues
+  >({
     resolver: zodResolver(schema),
     defaultValues: formDefaults,
   })
@@ -344,7 +327,7 @@ export function ProductFlowSSOSettingsSection({
   const baseUrlDraft = String(form.watch('productflow_sso.base_url') ?? '')
   const baseUrlAdvisory = useMemo(
     () => classifyBaseUrl(baseUrlDraft),
-    [baseUrlDraft],
+    [baseUrlDraft]
   )
   const formEnabled = form.watch('productflow_sso.enabled') === 'true'
 
@@ -371,7 +354,7 @@ export function ProductFlowSSOSettingsSection({
   }
 
   const onSubmit = async (values: ProductFlowSSOFormValues) => {
-    const normalized = normalizeFormValues(values)
+    const normalized = normalizeProductFlowSSOFormValues(values)
     // Treat an empty shared_secret as "leave existing value untouched"
     // (matches the placeholder text shown in the field). Without this
     // guard, saving any unrelated field would silently overwrite the
@@ -380,10 +363,7 @@ export function ProductFlowSSOSettingsSection({
       Object.keys(normalized) as Array<keyof NormalizedProductFlowSSOValues>
     ).filter((key) => {
       if (normalized[key] === baseline[key]) return false
-      if (
-        key === 'productflow_sso.shared_secret' &&
-        normalized[key] === ''
-      ) {
+      if (key === 'productflow_sso.shared_secret' && normalized[key] === '') {
         return false
       }
       return true
@@ -410,10 +390,10 @@ export function ProductFlowSSOSettingsSection({
 
   const commitBatch = async (
     normalized: NormalizedProductFlowSSOValues,
-    changedKeys: Array<keyof NormalizedProductFlowSSOValues>,
+    changedKeys: Array<keyof NormalizedProductFlowSSOValues>
   ) => {
     const result = await saveBatch.mutateAsync(
-      changedKeys.map((key) => ({ key, value: normalized[key] })),
+      changedKeys.map((key) => ({ key, value: normalized[key] }))
     )
     if (result.success) {
       setBaseline(normalized)
@@ -429,11 +409,11 @@ export function ProductFlowSSOSettingsSection({
   }
 
   const sharedSecretDraft = String(
-    form.watch('productflow_sso.shared_secret') ?? '',
+    form.watch('productflow_sso.shared_secret') ?? ''
   )
   const sharedSecretStrength = useMemo(
     () => scoreSecretStrength(sharedSecretDraft),
-    [sharedSecretDraft],
+    [sharedSecretDraft]
   )
 
   return (
@@ -467,7 +447,7 @@ export function ProductFlowSSOSettingsSection({
               <Info className='size-4' />
               <AlertDescription>
                 {t(
-                  'SSO is disabled. Saved configuration will take effect on next enable.',
+                  'SSO is disabled. Saved configuration will take effect on next enable.'
                 )}
               </AlertDescription>
             </Alert>
@@ -494,15 +474,17 @@ export function ProductFlowSSOSettingsSection({
                   </FormDescription>
                   {baseUrlAdvisory !== 'ok' && (
                     <div className='flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-amber-900'>
-                      <AlertTriangle className='size-3.5 mt-0.5 shrink-0' />
+                      <AlertTriangle className='mt-0.5 size-3.5 shrink-0' />
                       <span className='text-xs'>
                         {baseUrlAdvisory === 'warn-https' &&
                           t('Recommend HTTPS for production')}
                         {baseUrlAdvisory === 'warn-loopback' &&
-                          t('Loopback detected, OK for dev, not for production')}
+                          t(
+                            'Loopback detected, OK for dev, not for production'
+                          )}
                         {baseUrlAdvisory === 'warn-private' &&
                           t(
-                            'Private IP detected, browser may not reach across origins',
+                            'Private IP detected, browser may not reach across origins'
                           )}
                       </span>
                     </div>
@@ -557,7 +539,7 @@ export function ProductFlowSSOSettingsSection({
                         value={field.value || clearValue}
                         onValueChange={(value) =>
                           field.onChange(
-                            value === clearValue ? '' : value ?? ''
+                            value === clearValue ? '' : (value ?? '')
                           )
                         }
                         disabled={groupsQuery.isLoading}
@@ -589,14 +571,14 @@ export function ProductFlowSSOSettingsSection({
                       </Select>
                     </FormControl>
                     {groupsQuery.isError && (
-                      <p className='text-xs text-destructive'>
+                      <p className='text-destructive text-xs'>
                         {t('Failed to load groups, please retry.')}
                       </p>
                     )}
                     {!groupsQuery.isLoading &&
                       !groupsQuery.isError &&
                       groupsList.length === 0 && (
-                        <p className='text-xs text-muted-foreground'>
+                        <p className='text-muted-foreground text-xs'>
                           {t(
                             'No groups available. Create one in System Settings → Models → Group Ratio.'
                           )}
@@ -630,7 +612,9 @@ export function ProductFlowSSOSettingsSection({
                     <SecretStrengthMeter level={sharedSecretStrength} t={t} />
                   )}
                   <FormDescription>
-                    {t('Used by ProductFlow to verify server-to-server tickets.')}
+                    {t(
+                      'Used by ProductFlow to verify server-to-server tickets.'
+                    )}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -666,14 +650,14 @@ export function ProductFlowSSOSettingsSection({
                     <FormDescription>
                       {t('How long the one-time SSO ticket stays valid.')}
                       {human && (
-                        <span className='ml-1 text-muted-foreground'>
+                        <span className='text-muted-foreground ml-1'>
                           ({human})
                         </span>
                       )}
                     </FormDescription>
                     {tooShort && (
                       <div className='flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-amber-900'>
-                        <AlertTriangle className='size-3.5 mt-0.5 shrink-0' />
+                        <AlertTriangle className='mt-0.5 size-3.5 shrink-0' />
                         <span className='text-xs'>
                           {t('Ticket TTL below 10s may break slow clients')}
                         </span>
@@ -706,7 +690,7 @@ export function ProductFlowSSOSettingsSection({
                     <FormDescription>
                       {t('Lifetime hint returned to ProductFlow after login.')}
                       {human && (
-                        <span className='ml-1 text-muted-foreground'>
+                        <span className='text-muted-foreground ml-1'>
                           ({human})
                         </span>
                       )}
@@ -737,10 +721,10 @@ export function ProductFlowSSOSettingsSection({
                     </FormControl>
                     <FormDescription>
                       {t(
-                        'Lifetime hint returned for admin and root ProductFlow sessions.',
+                        'Lifetime hint returned for admin and root ProductFlow sessions.'
                       )}
                       {human && (
-                        <span className='ml-1 text-muted-foreground'>
+                        <span className='text-muted-foreground ml-1'>
                           ({human})
                         </span>
                       )}
@@ -764,7 +748,9 @@ export function ProductFlowSSOSettingsSection({
               onClick={handleTestConnection}
               disabled={testConnection.isPending}
             >
-              {testConnection.isPending ? t('Testing...') : t('Test Connection')}
+              {testConnection.isPending
+                ? t('Testing...')
+                : t('Test Connection')}
             </Button>
           </div>
         </form>
@@ -776,7 +762,7 @@ export function ProductFlowSSOSettingsSection({
             <AlertDialogTitle>{t('Confirm secret change')}</AlertDialogTitle>
             <AlertDialogDescription>
               {t(
-                'This will replace the existing SSO shared secret. ProductFlow installations using the old value will stop verifying tickets until they are reconfigured. Continue?',
+                'This will replace the existing SSO shared secret. ProductFlow installations using the old value will stop verifying tickets until they are reconfigured. Continue?'
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -831,7 +817,7 @@ function SecretStrengthMeter({ level, t }: SecretStrengthMeterProps) {
           />
         ))}
       </div>
-      <span className='text-xs text-muted-foreground'>{label}</span>
+      <span className='text-muted-foreground text-xs'>{label}</span>
     </div>
   )
 }

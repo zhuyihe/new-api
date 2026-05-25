@@ -70,7 +70,7 @@ func TestProductFlowTicketCanOnlyBeVerifiedOnce(t *testing.T) {
 		Username:         "alice",
 		Token:            "sk-test-token",
 		TokenID:          "9",
-		TokenName:        "ProductFlow",
+		TokenName:        "Atelier",
 		ExpiresInSeconds: 3600,
 	}
 	require.NoError(t, storeProductFlowTicket("ticket-1", claims, time.Minute))

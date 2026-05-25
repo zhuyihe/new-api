@@ -65,7 +65,7 @@ func acquireProductFlowRedisLock(key string) (func(), error) {
 			return func() { releaseProductFlowRedisLock(ctx, key, value) }, nil
 		}
 		if time.Now().After(deadline) {
-			return nil, errors.New("ProductFlow token provisioning is busy")
+			return nil, errors.New("Atelier token provisioning is busy")
 		}
 		time.Sleep(50 * time.Millisecond)
 	}

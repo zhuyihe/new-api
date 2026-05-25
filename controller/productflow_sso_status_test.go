@@ -51,7 +51,7 @@ func TestProductFlowStatusUsesCanonicalCallbackPreviewAndLastResult(t *testing.T
 		LatencyMs:     87,
 		TestedAgainst: "draft",
 		TestedAt:      1710000000,
-		Message:       "ProductFlow 1.2.3",
+		Message:       "Atelier 1.2.3",
 	}
 	encoded, err := common.Marshal(result)
 	require.NoError(t, err)
@@ -75,5 +75,5 @@ func TestProductFlowStatusUsesCanonicalCallbackPreviewAndLastResult(t *testing.T
 	require.NotNil(t, response.Data.LastTestResult)
 	require.True(t, response.Data.LastTestResult.OK)
 	require.Equal(t, "draft", response.Data.LastTestResult.TestedAgainst)
-	require.Equal(t, "ProductFlow 1.2.3", response.Data.LastTestResult.Message)
+	require.Equal(t, "Atelier 1.2.3", response.Data.LastTestResult.Message)
 }

@@ -83,7 +83,7 @@ func TestWarnIfProductFlowSSOTicketFallbackEmitsDisabledInfo(t *testing.T) {
 	WarnIfProductFlowSSOTicketFallbackIsRiskyOnStartup()
 
 	output := buf.String()
-	require.Contains(t, output, "ProductFlow SSO disabled")
+	require.Contains(t, output, "Atelier SSO disabled")
 	require.NotContains(t, output, "WARN: productflow_sso is configured")
 }
 

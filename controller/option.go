@@ -94,10 +94,10 @@ func validateProductFlowOptionValue(key string, value string) (string, error) {
 		}
 		parsed, err := url.ParseRequestURI(trimmed)
 		if err != nil {
-			return "", fmt.Errorf("ProductFlow URL 无效: %w", err)
+			return "", fmt.Errorf("Atelier URL 无效: %w", err)
 		}
 		if parsed.Scheme == "" || parsed.Host == "" {
-			return "", fmt.Errorf("ProductFlow URL 必须为绝对地址")
+			return "", fmt.Errorf("Atelier URL 必须为绝对地址")
 		}
 		return strings.TrimRight(trimmed, "/"), nil
 	case productFlowOptionSharedSecret, productFlowOptionTokenGroup:

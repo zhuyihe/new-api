@@ -41,7 +41,7 @@ func StartProductFlowSSO(c *gin.Context) {
 		if errors.Is(err, errSSODisabled) {
 			model.RecordLog(0, model.LogTypeSystem,
 				"productflow_sso start failed: reason=disabled")
-			c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "ProductFlow SSO is disabled"})
+			c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "Atelier SSO is disabled"})
 			return
 		}
 		model.RecordLog(0, model.LogTypeSystem, fmt.Sprintf(

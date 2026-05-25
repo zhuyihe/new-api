@@ -12,7 +12,7 @@ import (
 
 var (
 	errProductFlowSSONotLoggedIn = errors.New("not logged in")
-	errProductFlowSSOForbidden   = errors.New("user is not allowed to start ProductFlow SSO")
+	errProductFlowSSOForbidden   = errors.New("user is not allowed to start Atelier SSO")
 )
 
 func currentBrowserSessionUserID(c *gin.Context) (int, error) {

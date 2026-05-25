@@ -1,11 +1,11 @@
 # ProductFlow SSO Contract
 
-## Scenario: New API-backed ProductFlow SSO
+## Scenario: New API-backed Atelier SSO
 
 ### 1. Scope / Trigger
 
-- Trigger: New API exposes a server-side SSO bridge for ProductFlow and provisions per-user ProductFlow API tokens.
-- Scope: `GET /api/productflow/sso/start`, `POST /api/productflow/sso/verify`, ProductFlow token create-or-reuse behavior, and sidebar entry wiring.
+- Trigger: New API exposes a server-side SSO bridge for Atelier and provisions per-user Atelier API tokens.
+- Scope: `GET /api/productflow/sso/start`, `POST /api/productflow/sso/verify`, Atelier token create-or-reuse behavior, and sidebar entry wiring.
 - Out of scope: relay billing, provider channel selection, quota settlement, and ProductFlow tenant storage.
 
 ### 2. Signatures
@@ -54,12 +54,12 @@
 Database-backed option keys:
 
 - `productflow_sso.enabled`: optional, defaults to `true`. When `false`,
-  `GET /api/productflow/sso/start` returns `503` with `"ProductFlow SSO is
+  `GET /api/productflow/sso/start` returns `503` with `"Atelier SSO is
   disabled"` and the startup probe logs a single `INFO` line so operators
   can tell the toggle apart from a misconfiguration.
 - `productflow_sso.base_url`: required for SSO start, for example `https://image.aync.cc.cd`.
 - `productflow_sso.shared_secret`: required for verify.
-- `productflow_sso.token_name`: optional, defaults to `ProductFlow`.
+- `productflow_sso.token_name`: optional, defaults to `Atelier`.
 - `productflow_sso.token_group`: optional token group.
 - `productflow_sso.ticket_ttl_seconds`: optional, defaults to `60`.
 - `productflow_sso.session_ttl_seconds`: optional, defaults to `1209600`.
@@ -98,10 +98,10 @@ Security contract:
 ### 4. Validation & Error Matrix
 
 - Disabled (`productflow_sso.enabled=false`) on start -> `503` with body
-  `"ProductFlow SSO is disabled"`.
-- Missing ProductFlow base URL on start -> `503`.
-- Invalid ProductFlow base URL on start -> `503`.
-- Missing ProductFlow shared secret on start or verify -> `503`.
+  `"Atelier SSO is disabled"`.
+- Missing Atelier base URL on start -> `503`.
+- Invalid Atelier base URL on start -> `503`.
+- Missing Atelier shared secret on start or verify -> `503`.
 - No valid browser session on start -> `302` to `/sign-in?redirect=%2Fapi%2Fproductflow%2Fsso%2Fstart`.
 - Disabled user on start -> `403`.
 - Missing or wrong verify secret -> `401`.
@@ -122,7 +122,7 @@ Security contract:
 
 ### 5. Good/Base/Bad Cases
 
-- Good: logged-in user clicks sidebar Image, New API redirects to ProductFlow callback, ProductFlow verifies ticket once, and stores the returned token server-side.
+- Good: logged-in user clicks sidebar Image, New API redirects to the Atelier callback, Atelier verifies the ticket once, and stores the returned token server-side.
 - Base: user is not logged in, New API redirects to sign-in, then a browser-level redirect returns to `/api/productflow/sso/start`.
 - Bad: ProductFlow retries the same ticket or sends a wrong shared secret; New API rejects the request.
 
@@ -131,7 +131,7 @@ Security contract:
 - Secret validation rejects missing/wrong bearer secret.
 - Stored ticket verifies once and fails on the second attempt.
 - Start redirects unauthenticated browser sessions to sign-in with preserved redirect.
-- Start with a valid browser session creates or reuses the configured ProductFlow token.
+- Start with a valid browser session creates or reuses the configured Atelier token.
 - Redirect URL does not contain `sk-` token material.
 - `productflow_sso.enabled=false` returns the disabled `503` body and
   emits the disabled INFO when other settings are populated.

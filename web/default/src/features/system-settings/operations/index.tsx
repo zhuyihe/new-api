@@ -54,7 +54,7 @@ const defaultOperationsSettings: OperationsSettings = {
   WorkerAllowHttpImageRequestEnabled: false,
   'productflow_sso.base_url': '',
   'productflow_sso.shared_secret': '',
-  'productflow_sso.token_name': 'ProductFlow',
+  'productflow_sso.token_name': 'Atelier',
   'productflow_sso.token_group': '',
   'productflow_sso.ticket_ttl_seconds': 60,
   'productflow_sso.session_ttl_seconds': 1209600,

@@ -83,7 +83,7 @@ func TestProductFlowSSOConnection(c *gin.Context) {
 	result := performProductFlowHealthProbe(baseURL, source)
 	persistProductFlowLastTestResult(result)
 	common.SysLog(fmt.Sprintf(
-		"ProductFlow SSO test connection: base_url=%s result=%s latency=%dms",
+		"Atelier SSO test connection: base_url=%s result=%s latency=%dms",
 		baseURL, result.Category, result.LatencyMs,
 	))
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": result})
@@ -104,7 +104,7 @@ func performProductFlowHealthProbe(baseURL, source string) productFlowTestResult
 		// not a transport problem either; classify as `other` so the UI
 		// surfaces "check your input" without misattributing blame.
 		common.SysError(fmt.Sprintf(
-			"ProductFlow SSO test build request failed: %v", err,
+			"Atelier SSO test build request failed: %v", err,
 		))
 		return productFlowTestResult{
 			OK:            false,
@@ -112,7 +112,7 @@ func performProductFlowHealthProbe(baseURL, source string) productFlowTestResult
 			LatencyMs:     0,
 			TestedAgainst: source,
 			TestedAt:      now,
-			Message:       "Invalid ProductFlow base URL",
+			Message:       "Invalid Atelier base URL",
 		}
 	}
 
@@ -137,7 +137,7 @@ func performProductFlowHealthProbe(baseURL, source string) productFlowTestResult
 			LatencyMs:     latency,
 			TestedAgainst: source,
 			TestedAt:      now,
-			Message:       fmt.Sprintf("HTTP %d from ProductFlow", resp.StatusCode),
+			Message:       fmt.Sprintf("HTTP %d from Atelier", resp.StatusCode),
 		}
 	}
 
@@ -156,7 +156,7 @@ func performProductFlowHealthProbe(baseURL, source string) productFlowTestResult
 			LatencyMs:     latency,
 			TestedAgainst: source,
 			TestedAt:      now,
-			Message:       "ProductFlow returned invalid health body",
+			Message:       "Atelier returned invalid health body",
 		}
 	}
 	if !body.OK || !body.SupportsSSO {
@@ -166,7 +166,7 @@ func performProductFlowHealthProbe(baseURL, source string) productFlowTestResult
 			LatencyMs:     latency,
 			TestedAgainst: source,
 			TestedAt:      now,
-			Message:       "ProductFlow reports SSO not supported",
+			Message:       "Atelier reports SSO not supported",
 		}
 	}
 
@@ -180,7 +180,7 @@ func performProductFlowHealthProbe(baseURL, source string) productFlowTestResult
 		LatencyMs:     latency,
 		TestedAgainst: source,
 		TestedAt:      now,
-		Message:       fmt.Sprintf("ProductFlow %s", version),
+		Message:       fmt.Sprintf("Atelier %s", version),
 	}
 }
 
@@ -189,7 +189,7 @@ func performProductFlowHealthProbe(baseURL, source string) productFlowTestResult
 // for diagnosis (PRD R4); the return value is safe to surface to the client.
 func classifyProductFlowTransportError(err error) string {
 	common.SysError(fmt.Sprintf(
-		"ProductFlow SSO test transport error: %v", err,
+		"Atelier SSO test transport error: %v", err,
 	))
 
 	if errors.Is(err, context.DeadlineExceeded) {
@@ -210,9 +210,9 @@ func classifyProductFlowTransportError(err error) string {
 		if strings.Contains(inner, "connection refused") {
 			return "Connection refused"
 		}
-		return "Network error contacting ProductFlow"
+		return "Network error contacting Atelier"
 	}
-	return "Network error contacting ProductFlow"
+	return "Network error contacting Atelier"
 }
 
 // persistProductFlowLastTestResult stores the most recent probe outcome so
@@ -222,13 +222,13 @@ func persistProductFlowLastTestResult(result productFlowTestResult) {
 	encoded, err := common.Marshal(result)
 	if err != nil {
 		common.SysError(fmt.Sprintf(
-			"ProductFlow SSO test result marshal failed: %v", err,
+			"Atelier SSO test result marshal failed: %v", err,
 		))
 		return
 	}
 	if err := model.UpdateOption(productFlowOptionLastTestResult, string(encoded)); err != nil {
 		common.SysError(fmt.Sprintf(
-			"ProductFlow SSO test result persist failed: %v", err,
+			"Atelier SSO test result persist failed: %v", err,
 		))
 	}
 }
