@@ -77,6 +77,15 @@ type ChannelGroupsResponse = {
   data?: string[]
 }
 
+type ImageModelsResponse = {
+  success: boolean
+  message?: string
+  data?: {
+    group: string
+    models: string[]
+  }
+}
+
 type StatusResponse = {
   success: boolean
   data: ProductFlowSSOStatus
@@ -145,6 +154,28 @@ export function useChannelGroups() {
       )
     },
     staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  })
+}
+
+export function useProductFlowSSOImageModels(group: string) {
+  return useQuery({
+    queryKey: ['productflow-sso-image-models', group],
+    enabled: group.trim().length > 0,
+    queryFn: async (): Promise<string[]> => {
+      const params = new URLSearchParams({ group: group.trim() })
+      const res = await api.get<ImageModelsResponse>(
+        `/api/productflow/sso/image-models?${params.toString()}`
+      )
+      if (res.data?.success === false) {
+        throw new Error(res.data.message || 'Failed to load image models')
+      }
+      const raw = Array.isArray(res.data?.data?.models)
+        ? res.data.data.models
+        : []
+      return raw.filter((model): model is string => typeof model === 'string')
+    },
+    staleTime: 30_000,
     refetchOnWindowFocus: false,
   })
 }

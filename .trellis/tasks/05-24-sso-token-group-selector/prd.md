@@ -10,6 +10,10 @@ cross_repo: false
 
 # ProductFlow SSO Token Group Selector
 
+> 2026-05-25 update: production image-generation failure promoted the old BL-2 / BL-3 model-selection backlog into
+> `../05-25-atelier-sso-model-source/`. This completed task remains the historical record for the token-group dropdown
+> only.
+
 ## Goal
 
 替换 new-api `/system-settings/operations/productflow-sso` 配置页面的 **Token group** 字段:
@@ -244,8 +248,8 @@ R1 实现里 `orphanCurrentValue` 已经处理这种情况:
 | ID | 标题 | 触发的决策点 |
 |----|------|------------|
 | BL-1 | 孤儿分组健康检查 (channel.Group 贴了但 GroupRatio 没定义) | Decision 6 |
-| BL-2 | ProductFlow SettingsPage 模型字段动态化 (Input → Select, 拉 `/v1/models`) | Decision 8 |
-| BL-3 | ProductFlow 多分组模型映射重构 (image_generate_model → per-group) | Decision 8 |
+| BL-2 | ProductFlow SettingsPage 模型字段动态化 (Input → Select, 拉 `/v1/models`) | Promoted to `05-25-atelier-sso-model-source` |
+| BL-3 | ProductFlow 多分组模型映射重构 (image_generate_model → per-group) | Partially superseded by `05-25-atelier-sso-model-source`; multi-group remains out of scope |
 | BL-4 | SSO Token Group 详细预览面板 (渠道+模型列表 Card) | Decision 9 |
 | BL-5 | 分组删除 / 改名级联校验 (admin 删了分组但 SSO 还在引用) | Decision 隐含 (Q8 拍 A) |
 | BL-6 | new-api 全站默认语言策略调整 (fallbackLng / lng) | Decision 7 衍生 (如重新部署后 SSO 仍是英文才触发) |

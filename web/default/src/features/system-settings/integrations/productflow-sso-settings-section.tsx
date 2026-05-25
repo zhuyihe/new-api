@@ -57,6 +57,7 @@ import { SettingsSection } from '../components/settings-section'
 import { useResetForm } from '../hooks/use-reset-form'
 import {
   useChannelGroups,
+  useProductFlowSSOImageModels,
   useSaveProductFlowSSOBatch,
   useTestProductFlowSSOConnection,
 } from './productflow-sso-api'
@@ -78,6 +79,7 @@ const createProductFlowSSOSchema = (t: (key: string) => string) =>
     'productflow_sso.shared_secret': z.string(),
     'productflow_sso.token_name': z.string(),
     'productflow_sso.token_group': z.string(),
+    'productflow_sso.image_model': z.string(),
     'productflow_sso.ticket_ttl_seconds': z.string().refine((value) => {
       const trimmed = value.trim()
       if (!trimmed) return false
@@ -111,6 +113,7 @@ type ProductFlowSSOSettingsSectionProps = {
     'productflow_sso.shared_secret': string
     'productflow_sso.token_name': string
     'productflow_sso.token_group': string
+    'productflow_sso.image_model': string
     'productflow_sso.ticket_ttl_seconds': number
     'productflow_sso.session_ttl_seconds': number
     'productflow_sso.admin_session_ttl_seconds': number
@@ -237,6 +240,7 @@ const buildFormDefaults = (
   'productflow_sso.token_name':
     defaults['productflow_sso.token_name'] ?? 'Atelier',
   'productflow_sso.token_group': defaults['productflow_sso.token_group'] ?? '',
+  'productflow_sso.image_model': defaults['productflow_sso.image_model'] ?? '',
   'productflow_sso.ticket_ttl_seconds': String(
     defaults['productflow_sso.ticket_ttl_seconds'] ?? 60
   ),
@@ -262,6 +266,7 @@ const normalizeDefaults = (
   'productflow_sso.token_name':
     defaults['productflow_sso.token_name'] ?? 'Atelier',
   'productflow_sso.token_group': defaults['productflow_sso.token_group'] ?? '',
+  'productflow_sso.image_model': defaults['productflow_sso.image_model'] ?? '',
   'productflow_sso.ticket_ttl_seconds': String(
     defaults['productflow_sso.ticket_ttl_seconds'] ?? 60
   ).trim(),
@@ -339,6 +344,68 @@ export function ProductFlowSSOSettingsSection({
     [baseUrlDraft]
   )
   const formEnabled = form.watch('productflow_sso.enabled') === 'true'
+  const tokenGroupDraft = String(
+    form.watch('productflow_sso.token_group') ?? ''
+  ).trim()
+  const imageModelDraft = String(
+    form.watch('productflow_sso.image_model') ?? ''
+  ).trim()
+  const imageModelsQuery = useProductFlowSSOImageModels(tokenGroupDraft)
+  const imageModelOptions = imageModelsQuery.data ?? []
+
+  useEffect(() => {
+    if (!tokenGroupDraft) {
+      if (imageModelDraft) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        form.setValue('productflow_sso.image_model' as any, '', {
+          shouldDirty: true,
+        })
+      }
+      return
+    }
+    if (!imageModelsQuery.isSuccess || imageModelOptions.length !== 1) return
+    const [onlyModel] = imageModelOptions
+    if (onlyModel && imageModelDraft !== onlyModel) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      form.setValue('productflow_sso.image_model' as any, onlyModel, {
+        shouldDirty: true,
+      })
+    }
+  }, [
+    form,
+    imageModelDraft,
+    imageModelOptions,
+    imageModelsQuery.isSuccess,
+    tokenGroupDraft,
+  ])
+
+  const imageModelValidationMessage = useMemo(() => {
+    if (!tokenGroupDraft) return ''
+    if (imageModelsQuery.isLoading) {
+      return t('Load image models before saving.')
+    }
+    if (imageModelsQuery.isError) {
+      return t('Failed to load image models, please retry.')
+    }
+    if (imageModelOptions.length === 0) {
+      return t('No image models available for this token group.')
+    }
+    if (!imageModelDraft) {
+      return t('Select an image model')
+    }
+    if (!imageModelOptions.includes(imageModelDraft)) {
+      return t('Selected image model is not available for this token group.')
+    }
+    return ''
+  }, [
+    imageModelDraft,
+    imageModelOptions,
+    imageModelsQuery.isError,
+    imageModelsQuery.isLoading,
+    t,
+    tokenGroupDraft,
+  ])
+  const imageModelSelectionBlocked = imageModelValidationMessage !== ''
 
   // handleTestConnection probes ProductFlow's health endpoint using either
   // the draft base URL (preferred — lets the admin verify *before* saving)
@@ -368,6 +435,10 @@ export function ProductFlowSSOSettingsSection({
     // edit. Diff against getValues() so saved changes are not swallowed by the
     // resolver's parsed output.
     const normalized = normalizeProductFlowSSOFormValues(form.getValues())
+    if (imageModelSelectionBlocked) {
+      toast.error(imageModelValidationMessage)
+      return
+    }
     // Treat an empty shared_secret as "leave existing value untouched"
     // (matches the placeholder text shown in the field). Without this
     // guard, saving any unrelated field would silently overwrite the
@@ -436,9 +507,9 @@ export function ProductFlowSSOSettingsSection({
 
   return (
     <SettingsSection
-      title={t('ProductFlow SSO')}
+      title={t('Atelier SSO')}
       description={t(
-        'Configure the New API bridge used to open ProductFlow in a new tab'
+        'Configure the New API bridge used to open Atelier in a new tab'
       )}
     >
       <Form {...form}>
@@ -477,7 +548,7 @@ export function ProductFlowSSOSettingsSection({
               name='productflow_sso.base_url'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('ProductFlow base URL')}</FormLabel>
+                    <FormLabel>{t('Atelier base URL')}</FormLabel>
                   <FormControl>
                     <Input
                       type='url'
@@ -488,7 +559,7 @@ export function ProductFlowSSOSettingsSection({
                     />
                   </FormControl>
                   <FormDescription>
-                    {t('Public ProductFlow address used for the callback.')}
+                    {t('Public Atelier address used for the callback.')}
                   </FormDescription>
                   {baseUrlAdvisory !== 'ok' && (
                     <div className='flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-amber-900'>
@@ -520,13 +591,13 @@ export function ProductFlowSSOSettingsSection({
                   <FormLabel>{t('Token name')}</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder={t('ProductFlow')}
+                      placeholder={t('Atelier')}
                       {...field}
                       onChange={(event) => field.onChange(event.target.value)}
                     />
                   </FormControl>
                   <FormDescription>
-                    {t('Name of the dedicated New API token for ProductFlow.')}
+                    {t('Name of the dedicated New API token for Atelier.')}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -613,6 +684,78 @@ export function ProductFlowSSOSettingsSection({
 
             <FormField
               control={form.control}
+              name='productflow_sso.image_model'
+              render={({ field }) => {
+                const unavailableCurrentValue =
+                  field.value &&
+                  imageModelOptions.length > 0 &&
+                  !imageModelOptions.includes(field.value)
+                    ? field.value
+                    : null
+
+                return (
+                  <FormItem>
+                    <FormLabel>{t('Image model')}</FormLabel>
+                    <FormControl>
+                      <Select
+                        value={field.value || ''}
+                        onValueChange={(value) => field.onChange(value ?? '')}
+                        disabled={
+                          !tokenGroupDraft ||
+                          imageModelsQuery.isLoading ||
+                          imageModelsQuery.isError ||
+                          imageModelOptions.length === 0
+                        }
+                      >
+                        <SelectTrigger className='w-full'>
+                          <SelectValue
+                            placeholder={
+                              tokenGroupDraft
+                                ? t('Select an image model')
+                                : t('Select a token group first')
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent alignItemWithTrigger={false}>
+                          <SelectGroup>
+                            {unavailableCurrentValue && (
+                              <SelectItem
+                                value={unavailableCurrentValue}
+                                className='text-amber-700'
+                              >
+                                {unavailableCurrentValue} (
+                                {t('not available for current token group')})
+                              </SelectItem>
+                            )}
+                            {imageModelOptions.map((name) => (
+                              <SelectItem key={name} value={name}>
+                                {name}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    {imageModelValidationMessage && (
+                      <p className='text-destructive text-xs'>
+                        {imageModelValidationMessage}
+                      </p>
+                    )}
+                    <FormDescription>
+                      {t(
+                        'New API model Atelier will use for hosted SSO image generation.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )
+              }}
+            />
+          </div>
+
+          <div className='grid gap-6 md:grid-cols-2'>
+            <FormField
+              control={form.control}
               name='productflow_sso.shared_secret'
               render={({ field }) => (
                 <FormItem>
@@ -631,7 +774,7 @@ export function ProductFlowSSOSettingsSection({
                   )}
                   <FormDescription>
                     {t(
-                      'Used by ProductFlow to verify server-to-server tickets.'
+                      'Used by Atelier to verify server-to-server tickets.'
                     )}
                   </FormDescription>
                   <FormMessage />
@@ -755,16 +898,19 @@ export function ProductFlowSSOSettingsSection({
           </div>
 
           <div className='flex flex-wrap items-center gap-2'>
-            <Button type='submit' disabled={saveBatch.isPending}>
+            <Button
+              type='submit'
+              disabled={saveBatch.isPending || imageModelSelectionBlocked}
+            >
               {saveBatch.isPending
                 ? t('Saving...')
-                : t('Save ProductFlow settings')}
+                : t('Save Atelier settings')}
             </Button>
             <Button
               type='button'
               variant='outline'
               onClick={handleTestConnection}
-              disabled={testConnection.isPending}
+              disabled={testConnection.isPending || imageModelSelectionBlocked}
             >
               {testConnection.isPending
                 ? t('Testing...')
@@ -780,7 +926,7 @@ export function ProductFlowSSOSettingsSection({
             <AlertDialogTitle>{t('Confirm secret change')}</AlertDialogTitle>
             <AlertDialogDescription>
               {t(
-                'This will replace the existing SSO shared secret. ProductFlow installations using the old value will stop verifying tickets until they are reconfigured. Continue?'
+                'This will replace the existing SSO shared secret. Atelier installations using the old value will stop verifying tickets until they are reconfigured. Continue?'
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>

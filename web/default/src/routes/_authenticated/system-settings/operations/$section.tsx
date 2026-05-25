@@ -27,6 +27,12 @@ export const Route = createFileRoute(
   '/_authenticated/system-settings/operations/$section'
 )({
   beforeLoad: ({ params }) => {
+    if (params.section === 'productflow-sso') {
+      throw redirect({
+        to: '/system-settings/operations/$section',
+        params: { section: 'atelier-sso' },
+      })
+    }
     const validSections = OPERATIONS_SECTION_IDS as unknown as string[]
     if (!validSections.includes(params.section)) {
       throw redirect({

@@ -209,10 +209,10 @@ export function ProductFlowSSOStatusCard({
         <Switch
           checked={formEnabled}
           onCheckedChange={onToggleEnabled}
-          aria-label={t('Enable ProductFlow SSO')}
+          aria-label={t('Enable Atelier SSO')}
         />
         <div className='text-foreground text-base font-medium'>
-          {t('ProductFlow SSO')}
+          {t('Atelier SSO')}
         </div>
         <Badge variant='outline' className={cn('border', badge.className)}>
           {badge.label}

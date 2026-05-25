@@ -26,6 +26,7 @@ const flatValues = {
   'productflow_sso.shared_secret': '',
   'productflow_sso.token_name': 'Atelier',
   'productflow_sso.token_group': '',
+  'productflow_sso.image_model': '',
   'productflow_sso.ticket_ttl_seconds': '60',
   'productflow_sso.session_ttl_seconds': '1209600',
   'productflow_sso.admin_session_ttl_seconds': '3600',
@@ -40,6 +41,7 @@ describe('normalizeProductFlowSSOFormValues', () => {
       'https://image.example.test'
     )
     assert.equal(normalized['productflow_sso.token_group'], '')
+    assert.equal(normalized['productflow_sso.image_model'], '')
   })
 
   test('prefers React Hook Form nested dotted-path values over stale flat values', () => {
@@ -47,11 +49,13 @@ describe('normalizeProductFlowSSOFormValues', () => {
       ...flatValues,
       productflow_sso: {
         token_group: 'GPT-PLUS',
+        image_model: ' gpt-image-2 ',
         ticket_ttl_seconds: ' 120 ',
       },
     })
 
     assert.equal(normalized['productflow_sso.token_group'], 'GPT-PLUS')
+    assert.equal(normalized['productflow_sso.image_model'], 'gpt-image-2')
     assert.equal(normalized['productflow_sso.ticket_ttl_seconds'], '120')
   })
 

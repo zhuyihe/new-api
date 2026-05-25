@@ -1,12 +1,15 @@
 package model
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 
 	"github.com/samber/lo"
 	"gorm.io/gorm"
@@ -43,6 +46,93 @@ func GetGroupEnabledModels(group string) []string {
 	// Find distinct models
 	DB.Table("abilities").Where(commonGroupCol+" = ? and enabled = ?", group, true).Distinct("model").Pluck("model", &models)
 	return models
+}
+
+type GroupEnabledImageModelRow struct {
+	Model       string
+	ChannelType int
+	Endpoints   string
+	ModelStatus int
+}
+
+func GetGroupEnabledImageModels(group string) ([]string, error) {
+	group = strings.TrimSpace(group)
+	if group == "" {
+		return []string{}, nil
+	}
+
+	var rows []GroupEnabledImageModelRow
+	err := DB.Table("abilities").
+		Select(
+			"abilities.model as model, channels.type as channel_type, "+
+				"COALESCE(models.endpoints, '') as endpoints, COALESCE(models.status, 1) as model_status",
+		).
+		Joins("left join channels on abilities.channel_id = channels.id").
+		Joins("left join models on models.model_name = abilities.model and models.deleted_at IS NULL").
+		Where(qualifiedCommonGroupCol("abilities")+" = ? and abilities.enabled = ?", group, true).
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	modelSet := make(map[string]struct{})
+	for _, row := range rows {
+		modelName := strings.TrimSpace(row.Model)
+		if modelName == "" || row.ModelStatus != 1 {
+			continue
+		}
+		if strings.TrimSpace(row.Endpoints) != "" {
+			if endpointsContainImageGeneration(row.Endpoints) {
+				modelSet[modelName] = struct{}{}
+			}
+			continue
+		}
+		for _, endpointType := range common.GetEndpointTypesByChannelType(row.ChannelType, modelName) {
+			if endpointType == constant.EndpointTypeImageGeneration {
+				modelSet[modelName] = struct{}{}
+				break
+			}
+		}
+	}
+
+	models := make([]string, 0, len(modelSet))
+	for modelName := range modelSet {
+		models = append(models, modelName)
+	}
+	sort.Strings(models)
+	return models, nil
+}
+
+func qualifiedCommonGroupCol(table string) string {
+	groupCol := commonGroupCol
+	if strings.TrimSpace(groupCol) == "" {
+		groupCol = "`group`"
+		if common.UsingPostgreSQL {
+			groupCol = `"group"`
+		}
+	}
+	if strings.TrimSpace(table) == "" {
+		return groupCol
+	}
+	return table + "." + groupCol
+}
+
+func endpointsContainImageGeneration(raw string) bool {
+	var endpointMap map[string]any
+	if err := json.Unmarshal([]byte(raw), &endpointMap); err == nil {
+		_, ok := endpointMap[string(constant.EndpointTypeImageGeneration)]
+		return ok
+	}
+
+	var endpointList []string
+	if err := json.Unmarshal([]byte(raw), &endpointList); err == nil {
+		for _, endpoint := range endpointList {
+			if endpoint == string(constant.EndpointTypeImageGeneration) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func GetEnabledModels() []string {

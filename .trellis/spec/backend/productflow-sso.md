@@ -1,12 +1,14 @@
-# ProductFlow SSO Contract
+# Atelier SSO Contract (ProductFlow-Compatible Internals)
 
 ## Scenario: New API-backed Atelier SSO
 
 ### 1. Scope / Trigger
 
 - Trigger: New API exposes a server-side SSO bridge for Atelier and provisions per-user Atelier API tokens.
-- Scope: `GET /api/productflow/sso/start`, `POST /api/productflow/sso/verify`, Atelier token create-or-reuse behavior, and sidebar entry wiring.
-- Out of scope: relay billing, provider channel selection, quota settlement, and ProductFlow tenant storage.
+- Scope: `GET /api/productflow/sso/start`, `POST /api/productflow/sso/verify`, Atelier token create-or-reuse behavior, selected SSO image model propagation, and sidebar entry wiring.
+- Out of scope: relay billing, provider channel selection, quota settlement, and Atelier tenant storage.
+- Compatibility note: the visible brand is Atelier, but existing API paths and option keys keep the `productflow` /
+  `productflow_sso` prefix until a separate compatibility migration is approved.
 
 ### 2. Signatures
 
@@ -61,13 +63,16 @@ Database-backed option keys:
 - `productflow_sso.shared_secret`: required for verify.
 - `productflow_sso.token_name`: optional, defaults to `Atelier`.
 - `productflow_sso.token_group`: optional token group.
+- `productflow_sso.image_model`: optional selected image-generation model for Atelier SSO. When a token group is
+  configured and New API can resolve image-generation models for that group, this value must be one of those enabled
+  models. Atelier uses this model for hosted SSO image generation instead of an independently edited local image model.
 - `productflow_sso.ticket_ttl_seconds`: optional, defaults to `60`.
 - `productflow_sso.session_ttl_seconds`: optional, defaults to `1209600`.
 - `productflow_sso.admin_session_ttl_seconds`: optional, defaults to `3600`.
 - `productflow_sso.last_test_result`: managed by `POST /api/productflow/sso/test`;
   not editable from the settings form.
 
-The ProductFlow SSO bridge must read these values from New API's option store (`common.OptionMap` backed by the options
+The Atelier SSO bridge must read these values from New API's option store (`common.OptionMap` backed by the options
 table). Environment variables are not a fallback for this bridge, so stale deployment env cannot silently change SSO
 behavior.
 
@@ -81,11 +86,15 @@ Verify response `data` fields:
 - `token`
 - `token_id`
 - `token_name`
+- `token_group`
+- `image_model`
 - `expires_in`
 
 `role` is serialized as the decimal string form of the New API user role.
 `expires_in` uses `session_ttl_seconds` for ordinary users and
 `admin_session_ttl_seconds` for admin/root users.
+`group` remains the user's New API user group. `token_group` is the group assigned to the generated Atelier token.
+`image_model` is the New API-selected image-generation model that Atelier should use for hosted SSO image calls.
 
 Security contract:
 
@@ -113,6 +122,9 @@ Security contract:
   cause is logged via `common.SysError` (never returned to the client).
 - Admin/root role tickets use `admin_session_ttl_seconds`; ordinary user
   tickets use `session_ttl_seconds`.
+- A configured `productflow_sso.image_model` that is not enabled for
+  `productflow_sso.token_group` -> validation error before saving or starting a
+  known-broken SSO flow.
 - Test connection transport failure -> `200` with a `network_error`
   category whose `message` is a fixed string (no raw exception text).
 - Status callback preview with a base URL path segment -> canonical callback
@@ -132,6 +144,9 @@ Security contract:
 - Stored ticket verifies once and fails on the second attempt.
 - Start redirects unauthenticated browser sessions to sign-in with preserved redirect.
 - Start with a valid browser session creates or reuses the configured Atelier token.
+- Verify response includes `token_group` and `image_model` when configured, without overloading the existing `group`
+  field.
+- Config validation rejects a selected image model that is not enabled for the selected token group.
 - Redirect URL does not contain `sk-` token material.
 - `productflow_sso.enabled=false` returns the disabled `503` body and
   emits the disabled INFO when other settings are populated.
@@ -196,5 +211,5 @@ callbackPreview := callbackURL.String()
 
 When `productflow_sso` is configured and Redis is disabled, new-api logs a
 startup `WARN` because ticket storage falls back to process-local memory.
-Multi-process deployments must enable Redis for ProductFlow SSO to remain
+Multi-process deployments must enable Redis for Atelier SSO to remain
 reliable.

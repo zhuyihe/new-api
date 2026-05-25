@@ -29,6 +29,8 @@ type productFlowTicketClaims struct {
 	Token            string `json:"token,omitempty"`
 	TokenID          string `json:"token_id,omitempty"`
 	TokenName        string `json:"token_name,omitempty"`
+	TokenGroup       string `json:"token_group,omitempty"`
+	ImageModel       string `json:"image_model,omitempty"`
 	ExpiresInSeconds int    `json:"expires_in,omitempty"`
 }
 
@@ -175,6 +177,8 @@ func newProductFlowTicketClaims(user *model.User, token *model.Token, cfg produc
 		Token:            "sk-" + token.Key,
 		TokenID:          strconv.Itoa(token.Id),
 		TokenName:        token.Name,
+		TokenGroup:       token.Group,
+		ImageModel:       cfg.ImageModel,
 		ExpiresInSeconds: productFlowSessionTTLForRole(user.Role, cfg),
 	}
 }

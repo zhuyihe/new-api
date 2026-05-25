@@ -108,18 +108,54 @@ func normalizeBatchOptionUpdates(
 	updates []OptionUpdateRequest,
 ) ([]model.OptionBatchChange, error, string) {
 	normalized := make([]model.OptionBatchChange, 0, len(updates))
+	productFlowSSOChanged := false
 	for _, upd := range updates {
 		valStr := coerceOptionValueToString(upd.Value)
 		validated, err := validateProductFlowOptionValue(upd.Key, valStr)
 		if err != nil {
 			return nil, err, upd.Key
 		}
+		if isProductFlowSSOOptionKey(upd.Key) {
+			productFlowSSOChanged = true
+		}
 		normalized = append(normalized, model.OptionBatchChange{
 			Key:   upd.Key,
 			Value: validated,
 		})
 	}
+	if productFlowSSOChanged {
+		values := snapshotProductFlowSSOOptionValues()
+		for _, change := range normalized {
+			if isProductFlowSSOOptionKey(change.Key) {
+				values[change.Key] = change.Value
+			}
+		}
+		if err := validateProductFlowSSOOptionValues(values); err != nil {
+			return nil, err, productFlowSSOBatchFailureKey(normalized)
+		}
+	}
 	return normalized, nil, ""
+}
+
+func productFlowSSOBatchFailureKey(changes []model.OptionBatchChange) string {
+	preferred := []string{
+		productFlowOptionImageModel,
+		productFlowOptionTokenGroup,
+		productFlowOptionEnabled,
+	}
+	for _, key := range preferred {
+		for _, change := range changes {
+			if change.Key == key {
+				return key
+			}
+		}
+	}
+	for _, change := range changes {
+		if isProductFlowSSOOptionKey(change.Key) {
+			return change.Key
+		}
+	}
+	return ""
 }
 
 // coerceOptionValueToString mirrors the type-switch from UpdateOption so the

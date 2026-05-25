@@ -24,6 +24,7 @@ export type NormalizedProductFlowSSOValues = {
   'productflow_sso.shared_secret': string
   'productflow_sso.token_name': string
   'productflow_sso.token_group': string
+  'productflow_sso.image_model': string
   'productflow_sso.ticket_ttl_seconds': string
   'productflow_sso.session_ttl_seconds': string
   'productflow_sso.admin_session_ttl_seconds': string
@@ -61,6 +62,7 @@ export function normalizeProductFlowSSOFormValues(
     ).trim(),
     'productflow_sso.token_name': read('productflow_sso.token_name').trim(),
     'productflow_sso.token_group': read('productflow_sso.token_group').trim(),
+    'productflow_sso.image_model': read('productflow_sso.image_model').trim(),
     'productflow_sso.ticket_ttl_seconds': read(
       'productflow_sso.ticket_ttl_seconds'
     ).trim(),

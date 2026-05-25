@@ -47,7 +47,12 @@ type ProductFlowSSOStatusResponse struct {
 func GetProductFlowSSOStatus(c *gin.Context) {
 	cfg := getProductFlowSSOConfig()
 	baseURLValid := isProductFlowBaseURLValid(cfg.BaseURL)
-	configured := baseURLValid && cfg.SharedSecret != ""
+	configured := false
+	if baseURLValid && cfg.SharedSecret != "" {
+		cfgForValidation := cfg
+		cfgForValidation.Enabled = true
+		configured = cfgForValidation.validateForStart() == nil
+	}
 	var callbackPreview string
 	if baseURLValid {
 		if callbackURL, err := buildProductFlowCallbackBaseURL(cfg.BaseURL); err == nil {

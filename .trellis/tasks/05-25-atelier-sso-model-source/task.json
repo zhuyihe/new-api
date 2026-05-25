@@ -1,0 +1,30 @@
+{
+  "id": "atelier-sso-model-source",
+  "name": "atelier-sso-model-source",
+  "title": "Atelier SSO image model source of truth",
+  "description": "Move Atelier image-generation model selection into the New API Atelier SSO settings page, derive model options from the selected token group, pass the selected model through SSO verify, and rename the visible operations section slug from productflow-sso to atelier-sso while preserving internal compatibility keys and API paths.",
+  "status": "planned",
+  "created_at": "2026-05-25",
+  "scope_tier": "B",
+  "cross_repo": true,
+  "base_branch": "productflow-sso",
+  "repositories": [
+    "new-api",
+    "ProductFlow"
+  ],
+  "parent": "productflow-sso",
+  "files": [
+    "controller/productflow_sso_config.go",
+    "controller/productflow_sso.go",
+    "controller/productflow_sso_test.go",
+    "web/default/src/features/system-settings/operations/index.tsx",
+    "web/default/src/features/system-settings/operations/section-registry.tsx",
+    "web/default/src/features/system-settings/integrations/productflow-sso-api.ts",
+    "web/default/src/features/system-settings/integrations/productflow-sso-settings-section.tsx",
+    "../ProductFlow/backend/src/productflow_backend/application/auth_sessions.py",
+    "../ProductFlow/backend/src/productflow_backend/application/new_api_sso.py",
+    "../ProductFlow/backend/src/productflow_backend/application/provider_runtime.py",
+    "../ProductFlow/backend/src/productflow_backend/infrastructure/provider_config.py",
+    "../ProductFlow/backend/src/productflow_backend/infrastructure/db/models.py"
+  ]
+}

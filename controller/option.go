@@ -85,6 +85,32 @@ func buildCompletionRatioMetaValue(optionValues map[string]string) string {
 	return string(jsonBytes)
 }
 
+func isProductFlowSSOOptionKey(key string) bool {
+	switch key {
+	case productFlowOptionEnabled,
+		productFlowOptionBaseURL,
+		productFlowOptionSharedSecret,
+		productFlowOptionTokenName,
+		productFlowOptionTokenGroup,
+		productFlowOptionImageModel,
+		productFlowOptionTicketTTL,
+		productFlowOptionSessionTTL,
+		productFlowOptionAdminSessionTTL:
+		return true
+	default:
+		return false
+	}
+}
+
+func validateProductFlowSSOOptionUpdate(key string, value string) error {
+	if !isProductFlowSSOOptionKey(key) {
+		return nil
+	}
+	values := snapshotProductFlowSSOOptionValues()
+	values[key] = value
+	return validateProductFlowSSOOptionValues(values)
+}
+
 func validateProductFlowOptionValue(key string, value string) (string, error) {
 	switch key {
 	case productFlowOptionBaseURL:
@@ -100,7 +126,7 @@ func validateProductFlowOptionValue(key string, value string) (string, error) {
 			return "", fmt.Errorf("Atelier URL 必须为绝对地址")
 		}
 		return strings.TrimRight(trimmed, "/"), nil
-	case productFlowOptionSharedSecret, productFlowOptionTokenGroup:
+	case productFlowOptionSharedSecret, productFlowOptionTokenGroup, productFlowOptionImageModel:
 		return strings.TrimSpace(value), nil
 	case productFlowOptionTokenName:
 		trimmed := strings.TrimSpace(value)
@@ -199,6 +225,13 @@ func UpdateOption(c *gin.Context) {
 		return
 	} else {
 		option.Value = normalizedValue
+	}
+	if validateErr := validateProductFlowSSOOptionUpdate(option.Key, option.Value.(string)); validateErr != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": validateErr.Error(),
+		})
+		return
 	}
 	switch option.Key {
 	case "QuotaForInviter", "QuotaForInvitee":

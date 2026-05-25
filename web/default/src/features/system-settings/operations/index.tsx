@@ -56,6 +56,7 @@ const defaultOperationsSettings: OperationsSettings = {
   'productflow_sso.shared_secret': '',
   'productflow_sso.token_name': 'Atelier',
   'productflow_sso.token_group': '',
+  'productflow_sso.image_model': '',
   'productflow_sso.ticket_ttl_seconds': 60,
   'productflow_sso.session_ttl_seconds': 1209600,
   'productflow_sso.admin_session_ttl_seconds': 3600,
@@ -97,12 +98,15 @@ export function OperationsSettings() {
     )
   }
 
-  const activeSection = (params?.section ?? OPERATIONS_DEFAULT_SECTION) as
+  const routeSection = params?.section ?? OPERATIONS_DEFAULT_SECTION
+  const activeSection = (
+    routeSection === 'productflow-sso' ? 'atelier-sso' : routeSection
+  ) as
     | 'behavior'
     | 'monitoring'
     | 'email'
     | 'worker'
-    | 'productflow-sso'
+    | 'atelier-sso'
     | 'logs'
     | 'performance'
     | 'update-checker'

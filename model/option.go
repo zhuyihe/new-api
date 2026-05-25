@@ -84,6 +84,7 @@ func InitOptionMap() {
 	common.OptionMap["productflow_sso.shared_secret"] = ""
 	common.OptionMap["productflow_sso.token_name"] = productFlowDefaultTokenName
 	common.OptionMap["productflow_sso.token_group"] = ""
+	common.OptionMap["productflow_sso.image_model"] = ""
 	common.OptionMap["productflow_sso.ticket_ttl_seconds"] = strconv.Itoa(productFlowDefaultTicketTTL)
 	common.OptionMap["productflow_sso.session_ttl_seconds"] = strconv.Itoa(productFlowDefaultSessionTTL)
 	common.OptionMap["productflow_sso.admin_session_ttl_seconds"] = strconv.Itoa(productFlowDefaultAdminSessionTTL)

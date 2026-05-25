@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -35,7 +36,14 @@ func setupProductFlowSSOTestDB(t *testing.T) *gorm.DB {
 	dsn := "file:" + strings.ReplaceAll(t.Name(), "/", "_") + "?mode=memory&cache=shared"
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.Option{}))
+	require.NoError(t, db.AutoMigrate(
+		&model.User{},
+		&model.Token{},
+		&model.Option{},
+		&model.Channel{},
+		&model.Ability{},
+		&model.Model{},
+	))
 	model.DB = db
 	model.LOG_DB = db
 
@@ -65,11 +73,13 @@ func seedProductFlowSSOOptions(t *testing.T, values map[string]string) {
 func seedProductFlowSSODefaultOptions(t *testing.T) {
 	t.Helper()
 
+	seedProductFlowImageModel(t, model.DB, "image", "gpt-image-2")
 	seedProductFlowSSOOptions(t, map[string]string{
 		productFlowOptionBaseURL:         "https://image.example.com",
 		productFlowOptionSharedSecret:    "test-secret",
 		productFlowOptionTokenName:       "Atelier",
 		productFlowOptionTokenGroup:      "image",
+		productFlowOptionImageModel:      "gpt-image-2",
 		productFlowOptionTicketTTL:       "60",
 		productFlowOptionSessionTTL:      "3600",
 		productFlowOptionAdminSessionTTL: "3600",
@@ -92,6 +102,31 @@ func resetProductFlowMemoryTickets(t *testing.T) {
 	productFlowMemoryTickets.Lock()
 	productFlowMemoryTickets.items = map[string]productFlowMemoryTicket{}
 	productFlowMemoryTickets.Unlock()
+}
+
+func seedProductFlowImageModel(t *testing.T, db *gorm.DB, group string, modelName string) {
+	t.Helper()
+
+	channel := model.Channel{
+		Type:   constant.ChannelTypeOpenAI,
+		Key:    "test-key",
+		Status: common.ChannelStatusEnabled,
+		Name:   group + "-image-channel",
+		Models: modelName,
+		Group:  group,
+	}
+	require.NoError(t, db.Create(&channel).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group:     group,
+		Model:     modelName,
+		ChannelId: channel.Id,
+		Enabled:   true,
+	}).Error)
+	require.NoError(t, db.Create(&model.Model{
+		ModelName: modelName,
+		Endpoints: `["image-generation"]`,
+		Status:    1,
+	}).Error)
 }
 
 func seedProductFlowUser(t *testing.T, db *gorm.DB) model.User {
@@ -175,6 +210,7 @@ func TestProductFlowConfigIgnoresEnvDefaults(t *testing.T) {
 	require.Empty(t, cfg.SharedSecret)
 	require.Equal(t, "Atelier", cfg.TokenName)
 	require.Empty(t, cfg.TokenGroup)
+	require.Empty(t, cfg.ImageModel)
 	require.Equal(t, productFlowDefaultTicketTTL, cfg.TicketTTLSeconds)
 	require.Equal(t, productFlowDefaultSessionTTL, cfg.SessionTTLSeconds)
 	require.Equal(t, productFlowDefaultAdminSessionTTL, cfg.AdminSessionTTLSeconds)
@@ -240,6 +276,8 @@ func TestProductFlowStartCreatesTokenAndRedirectsWithOneTimeTicket(t *testing.T)
 	require.Equal(t, "default", response.Data.Group)
 	require.Equal(t, "1", response.Data.Role)
 	require.Equal(t, "Atelier", response.Data.TokenName)
+	require.Equal(t, "image", response.Data.TokenGroup)
+	require.Equal(t, "gpt-image-2", response.Data.ImageModel)
 	require.Equal(t, "sk-"+token.Key, response.Data.Token)
 	require.NotEmpty(t, response.Data.TokenID)
 	require.Equal(t, 3600, response.Data.ExpiresInSeconds)
@@ -316,10 +354,12 @@ func TestProductFlowTokenIsReusedAndUpdatedFromConfig(t *testing.T) {
 func TestProductFlowStartUsesDatabaseBackedOptions(t *testing.T) {
 	db := prepareProductFlowSSOTest(t)
 
+	seedProductFlowImageModel(t, db, "db-image", "gpt-image-3")
 	require.NoError(t, model.UpdateOption(productFlowOptionBaseURL, "https://db.example.com/"))
 	require.NoError(t, model.UpdateOption(productFlowOptionSharedSecret, "db-secret"))
 	require.NoError(t, model.UpdateOption(productFlowOptionTokenName, "ProductFlow DB"))
 	require.NoError(t, model.UpdateOption(productFlowOptionTokenGroup, "db-image"))
+	require.NoError(t, model.UpdateOption(productFlowOptionImageModel, "gpt-image-3"))
 	require.NoError(t, model.UpdateOption(productFlowOptionTicketTTL, "90"))
 	require.NoError(t, model.UpdateOption(productFlowOptionSessionTTL, "7200"))
 	require.NoError(t, model.UpdateOption(productFlowOptionAdminSessionTTL, "1800"))
@@ -350,6 +390,8 @@ func TestProductFlowStartUsesDatabaseBackedOptions(t *testing.T) {
 	response := decodeProductFlowResponse(t, verify)
 	require.True(t, response.Success)
 	require.Equal(t, "ProductFlow DB", response.Data.TokenName)
+	require.Equal(t, "db-image", response.Data.TokenGroup)
+	require.Equal(t, "gpt-image-3", response.Data.ImageModel)
 	require.Equal(t, 7200, response.Data.ExpiresInSeconds)
 
 	var token model.Token
@@ -357,4 +399,30 @@ func TestProductFlowStartUsesDatabaseBackedOptions(t *testing.T) {
 	require.False(t, token.ModelLimitsEnabled)
 	require.Empty(t, token.ModelLimits)
 	require.Equal(t, "db-image", token.Group)
+}
+
+func TestProductFlowSSOConfigRejectsStaleImageModelForTokenGroup(t *testing.T) {
+	prepareProductFlowSSOTest(t)
+
+	_, err, failingKey := normalizeBatchOptionUpdates([]OptionUpdateRequest{
+		{Key: productFlowOptionTokenGroup, Value: "image"},
+		{Key: productFlowOptionImageModel, Value: "gpt-image-1"},
+	})
+
+	require.Error(t, err)
+	require.Equal(t, productFlowOptionImageModel, failingKey)
+	require.Contains(t, err.Error(), "is not enabled")
+}
+
+func TestProductFlowSSOConfigRejectsTokenGroupWithoutImageModels(t *testing.T) {
+	prepareProductFlowSSOTest(t)
+
+	_, err, failingKey := normalizeBatchOptionUpdates([]OptionUpdateRequest{
+		{Key: productFlowOptionTokenGroup, Value: "text-only"},
+		{Key: productFlowOptionImageModel, Value: "gpt-image-2"},
+	})
+
+	require.Error(t, err)
+	require.Equal(t, productFlowOptionImageModel, failingKey)
+	require.Contains(t, err.Error(), "has no enabled image-generation models")
 }

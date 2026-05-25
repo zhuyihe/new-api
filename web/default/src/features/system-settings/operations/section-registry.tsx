@@ -100,9 +100,9 @@ const OPERATIONS_SECTIONS = [
     ),
   },
   {
-    id: 'productflow-sso',
-    titleKey: 'ProductFlow SSO',
-    descriptionKey: 'Configure the ProductFlow image workspace bridge',
+    id: 'atelier-sso',
+    titleKey: 'Atelier SSO',
+    descriptionKey: 'Configure the Atelier image workspace bridge',
     build: (settings: OperationsSettings) => (
       <ProductFlowSSOSettingsSection
         defaultValues={{
@@ -112,6 +112,8 @@ const OPERATIONS_SECTIONS = [
           'productflow_sso.token_name': settings['productflow_sso.token_name'],
           'productflow_sso.token_group':
             settings['productflow_sso.token_group'],
+          'productflow_sso.image_model':
+            settings['productflow_sso.image_model'],
           'productflow_sso.ticket_ttl_seconds':
             settings['productflow_sso.ticket_ttl_seconds'],
           'productflow_sso.session_ttl_seconds':

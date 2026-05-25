@@ -71,6 +71,7 @@ func SetApiRouter(router *gin.Engine) {
 		productFlowSSOAdminRoute := apiRouter.Group("/productflow/sso")
 		productFlowSSOAdminRoute.Use(middleware.RootAuth())
 		{
+			productFlowSSOAdminRoute.GET("/image-models", controller.GetProductFlowSSOImageModels)
 			productFlowSSOAdminRoute.GET("/status", controller.GetProductFlowSSOStatus)
 			productFlowSSOAdminRoute.POST("/test", controller.TestProductFlowSSOConnection)
 		}
