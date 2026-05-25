@@ -34,9 +34,9 @@ function readDottedStringValue(values: object, key: string): string {
   const nestedValue = key.split('.').reduce<unknown>((current, segment) => {
     if (!current || typeof current !== 'object') return undefined
     const currentRecord = current as Record<string, unknown>
-      return Object.prototype.hasOwnProperty.call(currentRecord, segment)
-        ? currentRecord[segment]
-        : undefined
+    return Object.prototype.hasOwnProperty.call(currentRecord, segment)
+      ? currentRecord[segment]
+      : undefined
   }, record)
   const value = nestedValue !== undefined ? nestedValue : record[key]
 

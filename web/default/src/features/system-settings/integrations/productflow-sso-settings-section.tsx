@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as z from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -280,6 +280,7 @@ export function ProductFlowSSOSettingsSection({
   const saveBatch = useSaveProductFlowSSOBatch()
   const testConnection = useTestProductFlowSSOConnection()
   const groupsQuery = useChannelGroups()
+  const lastSerializedBaselineDefaults = useRef<string | null>(null)
   const [baseline, setBaseline] = useState<NormalizedProductFlowSSOValues>(() =>
     normalizeDefaults(defaultValues)
   )
@@ -306,6 +307,14 @@ export function ProductFlowSSOSettingsSection({
   })
 
   useResetForm(form, formDefaults)
+
+  useEffect(() => {
+    const normalizedDefaults = normalizeDefaults(defaultValues)
+    const serializedDefaults = JSON.stringify(normalizedDefaults)
+    if (serializedDefaults === lastSerializedBaselineDefaults.current) return
+    setBaseline(normalizedDefaults)
+    lastSerializedBaselineDefaults.current = serializedDefaults
+  }, [defaultValues])
 
   // beforeunload guard: warn before the operator navigates away with
   // unsaved configuration. Skipping the listener when the form is clean
@@ -353,8 +362,12 @@ export function ProductFlowSSOSettingsSection({
     }
   }
 
-  const onSubmit = async (values: ProductFlowSSOFormValues) => {
-    const normalized = normalizeProductFlowSSOFormValues(values)
+  const onSubmit = async () => {
+    // zodResolver returns parsed values shaped like the flat schema, while
+    // react-hook-form stores dotted field names as nested raw values after an
+    // edit. Diff against getValues() so saved changes are not swallowed by the
+    // resolver's parsed output.
+    const normalized = normalizeProductFlowSSOFormValues(form.getValues())
     // Treat an empty shared_secret as "leave existing value untouched"
     // (matches the placeholder text shown in the field). Without this
     // guard, saving any unrelated field would silently overwrite the
