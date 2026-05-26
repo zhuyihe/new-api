@@ -24,6 +24,17 @@ type productFlowAPIResponse struct {
 	Data    productFlowTicketClaims `json:"data"`
 }
 
+type productFlowModelsAPIResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Data    struct {
+		Group       string   `json:"group"`
+		Models      []string `json:"models"`
+		ImageModels []string `json:"image_models"`
+		TextModels  []string `json:"text_models"`
+	} `json:"data"`
+}
+
 func setupProductFlowSSOTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
@@ -205,6 +216,14 @@ func decodeProductFlowResponse(t *testing.T, recorder *httptest.ResponseRecorder
 	t.Helper()
 
 	var response productFlowAPIResponse
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	return response
+}
+
+func decodeProductFlowModelsResponse(t *testing.T, recorder *httptest.ResponseRecorder) productFlowModelsAPIResponse {
+	t.Helper()
+
+	var response productFlowModelsAPIResponse
 	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
 	return response
 }
@@ -403,6 +422,27 @@ func TestProductFlowStartIncludesAllEnabledImageModelsForTokenGroup(t *testing.T
 	require.Equal(t, "gpt-image-2", response.Data.ImageModel)
 	require.Equal(t, []string{"gpt-image-2", "gpt-image-3"}, response.Data.ImageModels)
 	require.Equal(t, "gpt-5.4", response.Data.TextModel)
+	require.Equal(t, []string{"gpt-5.4", "gpt-5.5"}, response.Data.TextModels)
+}
+
+func TestProductFlowSSOGroupModelsEndpointIncludesTextModels(t *testing.T) {
+	db := prepareProductFlowSSOTest(t)
+	seedProductFlowImageModel(t, db, "image", "gpt-image-3")
+	seedProductFlowTextModel(t, db, "image", "gpt-5.4")
+	seedProductFlowTextModel(t, db, "image", "gpt-5.5")
+	router := gin.New()
+	router.GET("/api/productflow/sso/image-models", GetProductFlowSSOImageModels)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/productflow/sso/image-models?group=image", nil)
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	response := decodeProductFlowModelsResponse(t, recorder)
+	require.True(t, response.Success)
+	require.Equal(t, "image", response.Data.Group)
+	require.Equal(t, []string{"gpt-image-2", "gpt-image-3"}, response.Data.Models)
+	require.Equal(t, []string{"gpt-image-2", "gpt-image-3"}, response.Data.ImageModels)
 	require.Equal(t, []string{"gpt-5.4", "gpt-5.5"}, response.Data.TextModels)
 }
 

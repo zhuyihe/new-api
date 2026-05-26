@@ -57,7 +57,7 @@ import { SettingsSection } from '../components/settings-section'
 import { useResetForm } from '../hooks/use-reset-form'
 import {
   useChannelGroups,
-  useProductFlowSSOImageModels,
+  useProductFlowSSOGroupModels,
   useSaveProductFlowSSOBatch,
   useTestProductFlowSSOConnection,
 } from './productflow-sso-api'
@@ -350,10 +350,14 @@ export function ProductFlowSSOSettingsSection({
   const imageModelDraft = String(
     form.watch('productflow_sso.image_model') ?? ''
   ).trim()
-  const imageModelsQuery = useProductFlowSSOImageModels(tokenGroupDraft)
+  const groupModelsQuery = useProductFlowSSOGroupModels(tokenGroupDraft)
   const imageModelOptions = useMemo(
-    () => imageModelsQuery.data ?? [],
-    [imageModelsQuery.data]
+    () => groupModelsQuery.data?.imageModels ?? [],
+    [groupModelsQuery.data?.imageModels]
+  )
+  const textModelOptions = useMemo(
+    () => groupModelsQuery.data?.textModels ?? [],
+    [groupModelsQuery.data?.textModels]
   )
 
   useEffect(() => {
@@ -366,7 +370,7 @@ export function ProductFlowSSOSettingsSection({
       }
       return
     }
-    if (!imageModelsQuery.isSuccess || imageModelOptions.length !== 1) return
+    if (!groupModelsQuery.isSuccess || imageModelOptions.length !== 1) return
     const [onlyModel] = imageModelOptions
     if (onlyModel && imageModelDraft !== onlyModel) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -378,16 +382,16 @@ export function ProductFlowSSOSettingsSection({
     form,
     imageModelDraft,
     imageModelOptions,
-    imageModelsQuery.isSuccess,
+    groupModelsQuery.isSuccess,
     tokenGroupDraft,
   ])
 
   const imageModelValidationMessage = useMemo(() => {
     if (!tokenGroupDraft) return ''
-    if (imageModelsQuery.isLoading) {
+    if (groupModelsQuery.isLoading) {
       return t('Load image models before saving.')
     }
-    if (imageModelsQuery.isError) {
+    if (groupModelsQuery.isError) {
       return t('Failed to load image models, please retry.')
     }
     if (imageModelOptions.length === 0) {
@@ -403,8 +407,8 @@ export function ProductFlowSSOSettingsSection({
   }, [
     imageModelDraft,
     imageModelOptions,
-    imageModelsQuery.isError,
-    imageModelsQuery.isLoading,
+    groupModelsQuery.isError,
+    groupModelsQuery.isLoading,
     t,
     tokenGroupDraft,
   ])
@@ -551,7 +555,7 @@ export function ProductFlowSSOSettingsSection({
               name='productflow_sso.base_url'
               render={({ field }) => (
                 <FormItem>
-                    <FormLabel>{t('Atelier base URL')}</FormLabel>
+                  <FormLabel>{t('Atelier base URL')}</FormLabel>
                   <FormControl>
                     <Input
                       type='url'
@@ -705,8 +709,8 @@ export function ProductFlowSSOSettingsSection({
                         onValueChange={(value) => field.onChange(value ?? '')}
                         disabled={
                           !tokenGroupDraft ||
-                          imageModelsQuery.isLoading ||
-                          imageModelsQuery.isError ||
+                          groupModelsQuery.isLoading ||
+                          groupModelsQuery.isError ||
                           imageModelOptions.length === 0
                         }
                       >
@@ -776,14 +780,57 @@ export function ProductFlowSSOSettingsSection({
                     <SecretStrengthMeter level={sharedSecretStrength} t={t} />
                   )}
                   <FormDescription>
-                    {t(
-                      'Used by Atelier to verify server-to-server tickets.'
-                    )}
+                    {t('Used by Atelier to verify server-to-server tickets.')}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            <div className='space-y-2'>
+              <div className='text-sm font-medium'>{t('Text models')}</div>
+              <div className='border-input bg-muted/20 min-h-10 rounded-md border px-3 py-2'>
+                {!tokenGroupDraft && (
+                  <p className='text-muted-foreground text-sm'>
+                    {t('Select a token group first')}
+                  </p>
+                )}
+                {tokenGroupDraft && groupModelsQuery.isLoading && (
+                  <p className='text-muted-foreground text-sm'>
+                    {t('Loading text models...')}
+                  </p>
+                )}
+                {tokenGroupDraft && groupModelsQuery.isError && (
+                  <p className='text-destructive text-sm'>
+                    {t('Failed to load text models, please retry.')}
+                  </p>
+                )}
+                {tokenGroupDraft &&
+                  groupModelsQuery.isSuccess &&
+                  textModelOptions.length === 0 && (
+                    <p className='text-sm text-amber-700'>
+                      {t('No text models available for this token group.')}
+                    </p>
+                  )}
+                {textModelOptions.length > 0 && (
+                  <div className='flex flex-wrap gap-2'>
+                    {textModelOptions.map((name) => (
+                      <span
+                        key={name}
+                        className='bg-background rounded border px-2 py-1 text-xs font-medium'
+                      >
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p className='text-muted-foreground text-sm'>
+                {t(
+                  'Read-only preview from this token group. Users choose text models in Atelier product workbench run settings.'
+                )}
+              </p>
+            </div>
           </div>
 
           <div className='grid gap-6 md:grid-cols-2'>

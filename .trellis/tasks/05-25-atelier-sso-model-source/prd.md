@@ -91,8 +91,11 @@ Implementation guidance:
 - Rename the visible section route/nav to `/system-settings/operations/atelier-sso`.
 - Keep an alias/redirect for `/system-settings/operations/productflow-sso`.
 - Add an optional **Image model** select below **Token group** as the preferred default shown first in Atelier.
+- Show read-only **Text models** derived from the same token group so admins can confirm the group also supports
+  product-workbench copy/text runs. Do not persist a New API default text model in this task.
 - When token group changes:
   - reload image model options;
+  - reload text model preview;
   - auto-select the only available image model;
   - clear or mark invalid a saved default model that is no longer available.
 - Save/test buttons must be blocked when the selected group has no image model or the saved default model is unavailable.
@@ -177,6 +180,7 @@ The existing `group` claim remains the user's New API user group. Do not overloa
 - [ ] New API SSO settings is reachable at `/system-settings/operations/atelier-sso`.
 - [ ] Old `/system-settings/operations/productflow-sso` links land on the same section without a blank page.
 - [ ] The New API page shows `Token group` and optional default `Image model` together.
+- [ ] The New API page shows read-only text models derived from the same token group.
 - [ ] Selecting `GPT-Image-2` offers `gpt-image-2` and does not keep stale `gpt-image-1`.
 - [ ] Saving invalid group/model combinations is blocked.
 - [ ] SSO verify payload includes `token_group`, optional `image_model`, `image_models`, `text_model`, and `text_models`.

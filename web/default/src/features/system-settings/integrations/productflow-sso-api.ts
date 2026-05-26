@@ -16,8 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { AxiosRequestConfig } from 'axios'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
@@ -85,7 +85,14 @@ type ImageModelsResponse = {
   data?: {
     group: string
     models: string[]
+    image_models?: string[]
+    text_models?: string[]
   }
+}
+
+export type ProductFlowSSOGroupModels = {
+  imageModels: string[]
+  textModels: string[]
 }
 
 type StatusResponse = {
@@ -141,12 +148,9 @@ export function useChannelGroups() {
   return useQuery({
     queryKey: ['channel-groups'],
     queryFn: async (): Promise<string[]> => {
-      const res = await api.get<ChannelGroupsResponse>(
-        '/api/group/',
-        {
-          skipBusinessError: true,
-        } as ExtendedApiConfig
-      )
+      const res = await api.get<ChannelGroupsResponse>('/api/group/', {
+        skipBusinessError: true,
+      } as ExtendedApiConfig)
       if (res.data?.success === false) {
         throw new Error(res.data.message || 'Failed to load groups')
       }
@@ -160,11 +164,11 @@ export function useChannelGroups() {
   })
 }
 
-export function useProductFlowSSOImageModels(group: string) {
+export function useProductFlowSSOGroupModels(group: string) {
   return useQuery({
-    queryKey: ['productflow-sso-image-models', group],
+    queryKey: ['productflow-sso-group-models', group],
     enabled: group.trim().length > 0,
-    queryFn: async (): Promise<string[]> => {
+    queryFn: async (): Promise<ProductFlowSSOGroupModels> => {
       const params = new URLSearchParams({ group: group.trim() })
       const res = await api.get<ImageModelsResponse>(
         `/api/productflow/sso/image-models?${params.toString()}`
@@ -172,10 +176,22 @@ export function useProductFlowSSOImageModels(group: string) {
       if (res.data?.success === false) {
         throw new Error(res.data.message || 'Failed to load image models')
       }
-      const raw = Array.isArray(res.data?.data?.models)
-        ? res.data.data.models
+      const rawImageModels = Array.isArray(res.data?.data?.image_models)
+        ? res.data.data.image_models
+        : Array.isArray(res.data?.data?.models)
+          ? res.data.data.models
+          : []
+      const rawTextModels = Array.isArray(res.data?.data?.text_models)
+        ? res.data.data.text_models
         : []
-      return raw.filter((model): model is string => typeof model === 'string')
+      return {
+        imageModels: rawImageModels.filter(
+          (model): model is string => typeof model === 'string'
+        ),
+        textModels: rawTextModels.filter(
+          (model): model is string => typeof model === 'string'
+        ),
+      }
     },
     staleTime: 30_000,
     refetchOnWindowFocus: false,

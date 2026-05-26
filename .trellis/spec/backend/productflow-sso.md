@@ -41,6 +41,14 @@
   - Probes `<base_url>/api/health/sso` with a 3s timeout and persists the
     outcome to `productflow_sso.last_test_result` for the status endpoint to
     return.
+- `GET /api/productflow/sso/image-models?group=<token_group>`
+  - Admin endpoint guarded by `RootAuth()`.
+  - Returns the selected New API token-group model preview:
+    `{ group, models, image_models, text_models }`.
+  - `models` is the legacy image-model alias kept for the existing settings UI hook;
+    `image_models` is the explicit image-generation list; `text_models` is the
+    ordered non-image text-capable list.
+  - The endpoint must not expose channel keys or channel internals.
 - `PUT /api/option/batch`
   - Admin endpoint guarded by `RootAuth()`.
   - Body `{ updates: [{ key, value }, ...] }`. Each entry is validated

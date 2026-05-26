@@ -100,6 +100,8 @@ SSO settings section:
 - Auto-select when the model list has exactly one item.
 - Treat the field as an optional default. Show unavailable saved model as a warning and prevent saving until admin clears
   it or picks a valid one.
+- Reuse the same group-model query to show read-only text-capable models for the selected token group. This is a
+  visibility aid only; there is still no persisted `productflow_sso.text_model` option.
 
 ## Atelier Backend
 

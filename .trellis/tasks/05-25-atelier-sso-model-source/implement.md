@@ -20,6 +20,7 @@
 - [x] Rename visible operations section route id to `atelier-sso`.
 - [x] Add legacy alias handling for `productflow-sso`.
 - [x] Add optional default `Image model` select tied to selected token group.
+- [x] Show read-only text model options for the selected token group on the New API Atelier SSO settings page.
 - [x] Add i18n keys for new visible messages.
 - [x] Build/lint targeted frontend.
 
