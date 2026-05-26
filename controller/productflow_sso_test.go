@@ -130,6 +130,31 @@ func seedProductFlowImageModel(t *testing.T, db *gorm.DB, group string, modelNam
 	}).Error)
 }
 
+func seedProductFlowTextModel(t *testing.T, db *gorm.DB, group string, modelName string) {
+	t.Helper()
+
+	channel := model.Channel{
+		Type:   constant.ChannelTypeOpenAI,
+		Key:    "test-key",
+		Status: common.ChannelStatusEnabled,
+		Name:   group + "-text-channel",
+		Models: modelName,
+		Group:  group,
+	}
+	require.NoError(t, db.Create(&channel).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group:     group,
+		Model:     modelName,
+		ChannelId: channel.Id,
+		Enabled:   true,
+	}).Error)
+	require.NoError(t, db.Create(&model.Model{
+		ModelName: modelName,
+		Endpoints: `["openai-response"]`,
+		Status:    1,
+	}).Error)
+}
+
 func seedProductFlowUser(t *testing.T, db *gorm.DB) model.User {
 	t.Helper()
 
@@ -349,6 +374,8 @@ func TestProductFlowStartCreatesTokenAndRedirectsWithOneTimeTicket(t *testing.T)
 func TestProductFlowStartIncludesAllEnabledImageModelsForTokenGroup(t *testing.T) {
 	db := prepareProductFlowSSOTest(t)
 	seedProductFlowImageModel(t, db, "image", "gpt-image-3")
+	seedProductFlowTextModel(t, db, "image", "gpt-5.4")
+	seedProductFlowTextModel(t, db, "image", "gpt-5.5")
 	router := productFlowSSORouter()
 	user := seedProductFlowUser(t, db)
 	cookies := loginProductFlowSession(t, router, user)
@@ -375,6 +402,8 @@ func TestProductFlowStartIncludesAllEnabledImageModelsForTokenGroup(t *testing.T
 	response := decodeProductFlowResponse(t, verify)
 	require.Equal(t, "gpt-image-2", response.Data.ImageModel)
 	require.Equal(t, []string{"gpt-image-2", "gpt-image-3"}, response.Data.ImageModels)
+	require.Equal(t, "gpt-5.4", response.Data.TextModel)
+	require.Equal(t, []string{"gpt-5.4", "gpt-5.5"}, response.Data.TextModels)
 }
 
 func TestProductFlowStartDefaultsSingleImageModelForLegacyConfig(t *testing.T) {

@@ -33,6 +33,8 @@ type productFlowTicketClaims struct {
 	TokenGroup       string   `json:"token_group,omitempty"`
 	ImageModel       string   `json:"image_model,omitempty"`
 	ImageModels      []string `json:"image_models,omitempty"`
+	TextModel        string   `json:"text_model,omitempty"`
+	TextModels       []string `json:"text_models,omitempty"`
 	ExpiresInSeconds int      `json:"expires_in,omitempty"`
 }
 
@@ -249,6 +251,11 @@ func trimURLQuery(rawURL string) string {
 }
 
 func newProductFlowTicketClaims(user *model.User, token *model.Token, cfg productFlowSSOConfig) productFlowTicketClaims {
+	textModels := productFlowTextModelsForClaims(token.Group)
+	textModel := ""
+	if len(textModels) > 0 {
+		textModel = textModels[0]
+	}
 	return productFlowTicketClaims{
 		UserID:           strconv.Itoa(user.Id),
 		Username:         user.Username,
@@ -261,6 +268,8 @@ func newProductFlowTicketClaims(user *model.User, token *model.Token, cfg produc
 		TokenGroup:       token.Group,
 		ImageModel:       cfg.ImageModel,
 		ImageModels:      productFlowImageModelsForClaims(token.Group, cfg.ImageModel),
+		TextModel:        textModel,
+		TextModels:       textModels,
 		ExpiresInSeconds: productFlowSessionTTLForRole(user.Role, cfg),
 	}
 }
@@ -281,6 +290,14 @@ func productFlowImageModelsForClaims(group string, selectedModel string) []strin
 		}
 	}
 	return ordered
+}
+
+func productFlowTextModelsForClaims(group string) []string {
+	models, err := model.GetGroupEnabledTextModels(group)
+	if err != nil || len(models) == 0 {
+		return nil
+	}
+	return models
 }
 
 func productFlowSessionTTLForRole(role int, cfg productFlowSSOConfig) int {

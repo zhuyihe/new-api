@@ -4,9 +4,10 @@
 
 This is a cross-repo change:
 
-- New API owns the authoritative token group, available image model list, optional default model, and SSO verify payload.
-- Atelier consumes the SSO payload, lets the user select a model in image-chat generation settings, and applies that model
-  override only for hosted SSO image-generation paths.
+- New API owns the authoritative token group, available image/text model lists, optional default image model, and SSO
+  verify payload.
+- Atelier consumes the SSO payload, lets the user select models in image-chat generation settings and product-workbench
+  run settings, and applies those overrides only for hosted SSO generation paths.
 
 The compatibility boundary is deliberate: `productflow_sso.*` option keys and `/api/productflow/sso/*` API paths remain
 stable even though the visible brand is Atelier.
@@ -15,23 +16,23 @@ stable even though the visible brand is Atelier.
 
 ```text
 New API Atelier SSO settings
-  productflow_sso.token_group = GPT-Image-2
+  productflow_sso.token_group = Atelier
   productflow_sso.image_model = optional default
         |
         v
-SSO start provisions/reuses user's Atelier token with Group = GPT-Image-2
+SSO start provisions/reuses user's Atelier token with Group = Atelier
         |
         v
-SSO verify returns token_group + image_model + image_models
+SSO verify returns token_group + image_model + image_models + text_model + text_models
         |
         v
-Atelier auth session stores token_group + default image_model + image_models
+Atelier auth session stores token_group + image/text defaults and model lists
         |
         v
-User chooses a model in Atelier 生成设置
+User chooses image model in 生成设置 or image/text models in product workbench run settings
         |
         v
-Image generation snapshots the chosen image_model at submit time
+Generation snapshots the chosen image_model/text_model at submit time
         |
         v
 Atelier calls New API relay with user's token and the selected model
@@ -58,6 +59,12 @@ Extend ticket claims with:
 - `TokenGroup string json:"token_group,omitempty"`
 - `ImageModel string json:"image_model,omitempty"`
 - `ImageModels []string json:"image_models,omitempty"`
+- `TextModel string json:"text_model,omitempty"`
+- `TextModels []string json:"text_models,omitempty"`
+
+`TextModels` is derived from enabled non-image, text-capable models in the token group. There is no persisted
+`productflow_sso.text_model` option in this task; `TextModel` is the first deterministic item from `TextModels` when the
+list is non-empty.
 
 Do not change the existing `Group` field; it is the user's New API user group.
 
@@ -98,36 +105,41 @@ SSO settings section:
 
 Extend auth/session contracts:
 
-- `NewApiSessionClaims`: `token_group`, `image_model`, `image_models`.
-- `AuthSession`: durable columns for `new_api_token_group`, `new_api_image_model`, and `new_api_image_models`.
+- `NewApiSessionClaims`: `token_group`, `image_model`, `image_models`, `text_model`, and `text_models`.
+- `AuthSession`: durable columns for `new_api_token_group`, `new_api_image_model`, `new_api_image_models`,
+  `new_api_text_model`, and `new_api_text_models`.
 - `Principal`: carry those values without exposing tokens in repr/logs.
-- `ProviderExecutionContext`: carry the effective chosen model, not the whole option list.
+- `ProviderExecutionContext`: carry the effective chosen image/text model, not the whole option list.
 
 Provider resolution:
 
 - Credential override continues to set API key and relay base URL.
 - The selected generation-setting model should be validated against the SSO option list, snapshotted on the durable task,
   and applied before image provider creation.
-- Local binding model remains fallback only for non-SSO/bootstrap paths. Token-backed SSO sessions without image model
-  options should fail clearly and ask the user to re-enter Atelier from AYNC-API, so stale local models cannot bypass the
-  New API group contract.
+- The selected product-workbench text model should be validated against the SSO `text_models` list and applied to both
+  brief and copy model slots for the run.
+- Local binding model values remain fallback only for non-SSO/bootstrap paths. Token-backed SSO sessions without required
+  model options should fail clearly and ask the user to re-enter Atelier from AYNC-API, so stale local models cannot
+  bypass the New API group contract.
 
 Durable work:
 
 - Persist the effective SSO image model on image-session generation tasks and workflow runs that can execute image
   generation.
-- Workers reconstruct the same model from the durable row, not from a later session/config change.
+- Persist the effective SSO text model on workflow runs that can execute copy/text generation.
+- Workers reconstruct the same model choices from the durable row, not from a later session/config change.
 
 ## Atelier Frontend
 
-In hosted SSO mode, settings must not present the local image model field as the active SSO model. Image chat generation
-settings show a personal model dropdown sourced from the current SSO session. A fuller settings redesign can happen in the
-UI refactor task.
+In hosted SSO mode, settings must not present local model fields as the active SSO model source. Image chat generation
+settings show a personal image model dropdown sourced from the current SSO session. Product workbench run settings show
+personal text and image model dropdowns from the same session contract. A fuller settings redesign can happen in the UI
+refactor task.
 
 ## Compatibility
 
-- Existing token-backed sessions without SSO model options must re-authenticate through AYNC-API before image generation.
-  Non-SSO/bootstrap sessions continue to use the local provider binding model.
+- Existing token-backed sessions without required SSO model options must re-authenticate through AYNC-API before
+  generation. Non-SSO/bootstrap sessions continue to use the local provider binding model values.
 - Existing bookmarks to `/system-settings/operations/productflow-sso` should continue working through alias/redirect.
 - Existing API clients using `/api/productflow/sso/*` continue working.
 - Option storage does not need migration because `productflow_sso.image_model` is a new optional key.

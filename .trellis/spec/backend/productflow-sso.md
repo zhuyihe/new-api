@@ -5,7 +5,8 @@
 ### 1. Scope / Trigger
 
 - Trigger: New API exposes a server-side SSO bridge for Atelier and provisions per-user Atelier API tokens.
-- Scope: `GET /api/productflow/sso/start`, `POST /api/productflow/sso/verify`, Atelier token create-or-reuse behavior, New API image model option propagation, and sidebar entry wiring.
+- Scope: `GET /api/productflow/sso/start`, `POST /api/productflow/sso/verify`, Atelier token create-or-reuse behavior,
+  New API image/text model option propagation, and sidebar entry wiring.
 - Out of scope: relay billing, provider channel selection, quota settlement, and Atelier tenant storage.
 - Compatibility note: the visible brand is Atelier, but existing API paths and option keys keep the `productflow` /
   `productflow_sso` prefix until a separate compatibility migration is approved.
@@ -94,6 +95,8 @@ Verify response `data` fields:
 - `token_group`
 - `image_model`
 - `image_models`
+- `text_model`
+- `text_models`
 - `expires_in`
 
 `role` is serialized as the decimal string form of the New API user role.
@@ -102,8 +105,11 @@ Verify response `data` fields:
 `group` remains the user's New API user group. `token_group` is the group assigned to the generated Atelier token.
 `image_model` is the optional New API default image-generation model.
 `image_models` is the ordered list of enabled image-generation models available to the generated Atelier token group.
-Atelier must validate user-selected generation models against this list and must not use its local provider binding model
-when these SSO model options are present.
+`text_model` is the default text/copy model, currently the first deterministic enabled text-capable model for the token
+group when one exists.
+`text_models` is the ordered list of enabled non-image text-capable models available to the generated Atelier token group.
+Atelier must validate user-selected generation models against these lists and must not use its local provider binding
+model values when the relevant SSO model options are present.
 
 Security contract:
 
@@ -169,8 +175,8 @@ Security contract:
 - Start returns a browser-friendly HTML error page for authenticated browser
   users when SSO configuration blocks the redirect.
 - Start with a valid browser session creates or reuses the configured Atelier token.
-- Verify response includes `token_group`, optional default `image_model`, and available `image_models`, without
-  overloading the existing `group` field.
+- Verify response includes `token_group`, optional default `image_model`, available `image_models`, default `text_model`,
+  and available `text_models`, without overloading the existing `group` field.
 - Config validation rejects a selected image model that is not enabled for the selected token group.
 - Redirect URL does not contain `sk-` token material.
 - `productflow_sso.enabled=false` returns the disabled `503` body and

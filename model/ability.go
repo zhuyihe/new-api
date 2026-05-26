@@ -56,6 +56,14 @@ type GroupEnabledImageModelRow struct {
 }
 
 func GetGroupEnabledImageModels(group string) ([]string, error) {
+	return getGroupEnabledModelsByEndpoint(group, endpointAllowsImageGeneration)
+}
+
+func GetGroupEnabledTextModels(group string) ([]string, error) {
+	return getGroupEnabledModelsByEndpoint(group, endpointAllowsTextGeneration)
+}
+
+func getGroupEnabledModelsByEndpoint(group string, allowsEndpoint func(GroupEnabledImageModelRow) bool) ([]string, error) {
 	group = strings.TrimSpace(group)
 	if group == "" {
 		return []string{}, nil
@@ -81,17 +89,8 @@ func GetGroupEnabledImageModels(group string) ([]string, error) {
 		if modelName == "" || row.ModelStatus != 1 {
 			continue
 		}
-		if strings.TrimSpace(row.Endpoints) != "" {
-			if endpointsContainImageGeneration(row.Endpoints) {
-				modelSet[modelName] = struct{}{}
-			}
-			continue
-		}
-		for _, endpointType := range common.GetEndpointTypesByChannelType(row.ChannelType, modelName) {
-			if endpointType == constant.EndpointTypeImageGeneration {
-				modelSet[modelName] = struct{}{}
-				break
-			}
+		if allowsEndpoint(row) {
+			modelSet[modelName] = struct{}{}
 		}
 	}
 
@@ -117,19 +116,70 @@ func qualifiedCommonGroupCol(table string) string {
 	return table + "." + groupCol
 }
 
-func endpointsContainImageGeneration(raw string) bool {
+func endpointAllowsImageGeneration(row GroupEnabledImageModelRow) bool {
+	if strings.TrimSpace(row.Endpoints) != "" {
+		return endpointsContainAny(row.Endpoints, constant.EndpointTypeImageGeneration)
+	}
+	for _, endpointType := range common.GetEndpointTypesByChannelType(row.ChannelType, row.Model) {
+		if endpointType == constant.EndpointTypeImageGeneration {
+			return true
+		}
+	}
+	return false
+}
+
+func endpointAllowsTextGeneration(row GroupEnabledImageModelRow) bool {
+	modelName := strings.TrimSpace(row.Model)
+	if modelName == "" || common.IsImageGenerationModel(modelName) {
+		return false
+	}
+	textEndpoints := []constant.EndpointType{
+		constant.EndpointTypeOpenAI,
+		constant.EndpointTypeOpenAIResponse,
+		constant.EndpointTypeOpenAIResponseCompact,
+		constant.EndpointTypeAnthropic,
+		constant.EndpointTypeGemini,
+	}
+	if strings.TrimSpace(row.Endpoints) != "" {
+		return endpointsContainAny(row.Endpoints, textEndpoints...)
+	}
+	return endpointTypesContainAny(common.GetEndpointTypesByChannelType(row.ChannelType, modelName), textEndpoints...)
+}
+
+func endpointsContainAny(raw string, wanted ...constant.EndpointType) bool {
+	wantedSet := map[string]struct{}{}
+	for _, endpoint := range wanted {
+		wantedSet[string(endpoint)] = struct{}{}
+	}
 	var endpointMap map[string]any
 	if err := json.Unmarshal([]byte(raw), &endpointMap); err == nil {
-		_, ok := endpointMap[string(constant.EndpointTypeImageGeneration)]
-		return ok
+		for endpoint := range endpointMap {
+			if _, ok := wantedSet[endpoint]; ok {
+				return true
+			}
+		}
+		return false
 	}
 
 	var endpointList []string
 	if err := json.Unmarshal([]byte(raw), &endpointList); err == nil {
 		for _, endpoint := range endpointList {
-			if endpoint == string(constant.EndpointTypeImageGeneration) {
+			if _, ok := wantedSet[endpoint]; ok {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func endpointTypesContainAny(endpointTypes []constant.EndpointType, wanted ...constant.EndpointType) bool {
+	wantedSet := map[constant.EndpointType]struct{}{}
+	for _, endpoint := range wanted {
+		wantedSet[endpoint] = struct{}{}
+	}
+	for _, endpoint := range endpointTypes {
+		if _, ok := wantedSet[endpoint]; ok {
+			return true
 		}
 	}
 	return false

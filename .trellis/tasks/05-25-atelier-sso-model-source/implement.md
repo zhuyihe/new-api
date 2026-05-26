@@ -11,6 +11,8 @@
 - [x] Keep `productflow_sso.image_model` as an optional default, validate it only when present, and keep status/config DTO plumbing aligned.
 - [x] Add RootAuth image-model choices endpoint for a token group.
 - [x] Extend SSO ticket claims and verify response with `token_group`, optional `image_model`, and `image_models`.
+- [x] Extend SSO ticket claims and verify response with `text_model` and `text_models` derived from enabled text-capable
+  models in the token group.
 - [x] Add backend tests for valid blank/default model behavior, stale model rejection, and verify payload.
 
 ## Phase 2 - New API Frontend
@@ -24,9 +26,12 @@
 ## Phase 3 - Atelier Backend
 
 - [x] Add auth-session columns for `new_api_token_group`, `new_api_image_model`, and `new_api_image_models`.
+- [x] Add auth-session/workflow-run columns for `new_api_text_model` and `new_api_text_models` where durable text model
+  selection is needed.
 - [x] Parse and persist new SSO verify fields, including the model option list.
 - [x] Carry model options through `Principal`; pass only the effective chosen model through `ProviderExecutionContext`.
 - [x] Override effective image model from the user's generation-setting selection for SSO image-generation paths.
+- [x] Override effective text model from the user's product-workbench run selection for SSO copy/text paths.
 - [x] Snapshot model on durable image tasks/workflow runs.
 - [x] Add regression tests proving stale local image binding does not override SSO model.
 
@@ -34,6 +39,7 @@
 
 - [x] Make the hosted SSO active image model non-editable in admin settings.
 - [x] Add the per-user New API model dropdown to image-chat `生成设置`.
+- [x] Add per-user New API text/image model dropdowns to product workbench run settings.
 - [x] Avoid larger visual redesign; leave that to the Atelier UI refactor task.
 
 ## Phase 5 - Validation
