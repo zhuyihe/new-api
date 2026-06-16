@@ -181,6 +181,7 @@ var CohereSafetySetting string
 const (
 	RequestIdKey         = "X-Oneapi-Request-Id"
 	UpstreamRequestIdKey = "X-Upstream-Request-Id"
+	AtelierRequestIdKey  = "X-Atelier-Request-Id"
 )
 
 const (
