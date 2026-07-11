@@ -1,0 +1,198 @@
+name: Build jy image to GHCR
+
+on:
+  push:
+    branches:
+      - jy
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Git ref or commit to build
+        required: true
+        default: jy
+        type: string
+
+concurrency:
+  group: ghcr-jy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/zhuyihe/new-api
+  BUN_IMAGE: oven/bun:1@sha256:0733e50325078969732ebe3b15ce4c4be5082f18c4ac1a0f0ca4839c2e4e42a7
+
+jobs:
+  prepare:
+    name: Prepare build metadata
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.metadata.outputs.sha }}
+      version: ${{ steps.metadata.outputs.version }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_ref || github.sha }}
+          fetch-depth: 0
+
+      - name: Derive immutable version
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_sha="$(git rev-parse HEAD)"
+          short_sha="${source_sha:0:12}"
+          commit_date="$(git show -s --format=%cs "$source_sha" | tr -d '-')"
+          version="jy-${commit_date}-${short_sha}"
+          echo "sha=${source_sha}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: Test source
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - name: Check out immutable source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: 1.26.1
+          cache: true
+
+      - name: Run backend tests
+        run: |
+          go test ./...
+          go vet ./...
+
+      - name: Check both frontends
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          docker run --rm \
+            --env VERSION \
+            --volume "${GITHUB_WORKSPACE}:/workspace" \
+            --workdir /workspace/web \
+            "${BUN_IMAGE}" \
+            sh -euc '
+              bun install --frozen-lockfile
+              cd default
+              bun run typecheck
+              bun run lint
+              DISABLE_ESLINT_PLUGIN=true VITE_REACT_APP_VERSION="$VERSION" bun run build
+              cd ../classic
+              bun run lint
+              VITE_REACT_APP_VERSION="$VERSION" bun run build
+            '
+
+  build:
+    name: Build, scan, and publish
+    needs:
+      - prepare
+      - test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    steps:
+      - name: Check out immutable source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Inject build version
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        shell: bash
+        run: printf '%s\n' "$VERSION" > VERSION
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c99871dec2022cc055c062a10cc1a1310835ceb4 # v4.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push immutable image
+        id: image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          platforms: linux/amd64
+          pull: true
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ needs.prepare.outputs.version }}
+            ${{ env.IMAGE }}:jy
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.sha }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+            org.opencontainers.image.title=new-api jy
+          cache-from: type=gha,scope=ghcr-jy-amd64
+          cache-to: type=gha,mode=max,scope=ghcr-jy-amd64
+          provenance: mode=max
+          sbom: true
+
+      - name: Scan image for critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}@${{ steps.image.outputs.digest }}
+          format: table
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign immutable image
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+
+      - name: Record image metadata
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.sha }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull "${IMAGE}@${DIGEST}"
+          binary_sha="$(docker run --rm --entrypoint sha256sum "${IMAGE}@${DIGEST}" /new-api | awk '{print $1}')"
+          architecture="$(docker image inspect "${IMAGE}@${DIGEST}" --format '{{.Os}}/{{.Architecture}}')"
+          cat > image-metadata.txt <<EOF
+          image=${IMAGE}
+          version=${VERSION}
+          source_sha=${SOURCE_SHA}
+          digest=${DIGEST}
+          platform=${architecture}
+          binary_sha256=${binary_sha}
+          EOF
+          cat image-metadata.txt
+          {
+            echo '### GHCR image'
+            echo '```text'
+            cat image-metadata.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload image metadata
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ needs.prepare.outputs.version }}-metadata
+          path: image-metadata.txt
+          if-no-files-found: error
