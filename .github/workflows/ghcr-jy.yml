@@ -60,6 +60,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ needs.prepare.outputs.sha }}
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
@@ -67,10 +68,22 @@ jobs:
           go-version: 1.26.1
           cache: true
 
-      - name: Run backend tests
+      - name: Run actionlint
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+
+      - name: Check whitespace
+        env:
+          HEAD_SHA: ${{ needs.prepare.outputs.sha }}
+        shell: bash
         run: |
-          go test ./...
-          go vet ./...
+          set -euo pipefail
+          git diff --check
+          base_sha="$(jq -r '.before // ""' "$GITHUB_EVENT_PATH")"
+          if [[ -n "$base_sha" && "$base_sha" != "0000000000000000000000000000000000000000" ]]; then
+            git diff --check "$base_sha" "$HEAD_SHA"
+          elif git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+            git diff --check HEAD^ HEAD
+          fi
 
       - name: Check both frontends
         env:
@@ -91,6 +104,11 @@ jobs:
               bun run lint
               VITE_REACT_APP_VERSION="$VERSION" bun run build
             '
+
+      - name: Run backend tests
+        run: |
+          go test ./...
+          go vet ./...
 
   build:
     name: Build, scan, and publish
