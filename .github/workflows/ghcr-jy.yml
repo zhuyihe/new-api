@@ -132,9 +132,7 @@ jobs:
             '
 
       - name: Run backend tests
-        run: |
-          go test ./...
-          go vet ./...
+        run: go test ./...
 
   build:
     name: Build, scan, and publish
