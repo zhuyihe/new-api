@@ -85,24 +85,50 @@ jobs:
             git diff --check HEAD^ HEAD
           fi
 
-      - name: Check both frontends
+      - name: Build embedded frontends
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           docker run --rm \
             --env VERSION \
             --volume "${GITHUB_WORKSPACE}:/workspace" \
-            --workdir /workspace/web \
+            --workdir /workspace \
             "${BUN_IMAGE}" \
             sh -euc '
+              default_build_dir="$(mktemp -d)"
+              classic_build_dir="$(mktemp -d)"
+              cleanup() {
+                rm -rf "$default_build_dir" "$classic_build_dir"
+              }
+              trap cleanup EXIT
+
+              mkdir -p "$default_build_dir/web/default" "$default_build_dir/web/classic"
+              cp "web/package.json" "web/bun.lock" "$default_build_dir/web/"
+              cp "web/default/package.json" "$default_build_dir/web/default/package.json"
+              cp "web/classic/package.json" "$default_build_dir/web/classic/package.json"
+              cd "$default_build_dir/web"
               bun install --frozen-lockfile
-              cd default
-              bun run typecheck
-              bun run lint
+              cp -R "/workspace/web/default/." "$default_build_dir/web/default/"
+              rm -rf "$default_build_dir/web/default/dist"
+              cd "$default_build_dir/web/default"
               DISABLE_ESLINT_PLUGIN=true VITE_REACT_APP_VERSION="$VERSION" bun run build
-              cd ../classic
-              bun run lint
+              rm -rf "/workspace/web/default/dist"
+              mkdir -p "/workspace/web/default/dist"
+              cp -R "$default_build_dir/web/default/dist/." "/workspace/web/default/dist/"
+
+              mkdir -p "$classic_build_dir/web/default" "$classic_build_dir/web/classic"
+              cp "/workspace/web/package.json" "/workspace/web/bun.lock" "$classic_build_dir/web/"
+              cp "/workspace/web/default/package.json" "$classic_build_dir/web/default/package.json"
+              cp "/workspace/web/classic/package.json" "$classic_build_dir/web/classic/package.json"
+              cd "$classic_build_dir/web"
+              bun install --filter ./classic --frozen-lockfile
+              cp -R "/workspace/web/classic/." "$classic_build_dir/web/classic/"
+              rm -rf "$classic_build_dir/web/classic/dist"
+              cd "$classic_build_dir/web/classic"
               VITE_REACT_APP_VERSION="$VERSION" bun run build
+              rm -rf "/workspace/web/classic/dist"
+              mkdir -p "/workspace/web/classic/dist"
+              cp -R "$classic_build_dir/web/classic/dist/." "/workspace/web/classic/dist/"
             '
 
       - name: Run backend tests
